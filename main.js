@@ -11,6 +11,8 @@ const focusPrompt = () => {
     const prompt = document.querySelector('.input[contenteditable="true"]');
     if (prompt) {
         prompt.focus();
+
+        // Moves to end of prompt
         const range = document.createRange();
         range.selectNodeContents(prompt);
         range.collapse(false);

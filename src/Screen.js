@@ -12,6 +12,7 @@ export const setupScreen = (screenElement) => {
 }
 
 /**
+ * Prints text to the screen
  * @param {string} text
  */
 export const print = (text) => {
@@ -21,23 +22,37 @@ export const print = (text) => {
     screen.appendChild(outputElem);
 }
 
+/**
+ * Prompts the user for input.
+ * @returns {Promise<string>} The user's input or rejects if the user cancels.
+ */
 export const prompt = () => {
-    const inputElem = document.createElement('span');
-    inputElem.classList.add('input');
-    inputElem.contentEditable = true;
+    return new Promise((resolve, reject) => {
+        const inputElem = document.createElement('span');
+        inputElem.classList.add('input');
+        inputElem.contentEditable = true;
 
-    inputElem.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
+        inputElem.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
 
-            const command = inputElem.innerText;
-            event.currentTarget.contentEditable = false;
+                const command = inputElem.innerText;
+                event.currentTarget.contentEditable = false;
 
-            prompt();
-        }
+                resolve(command);
+                prompt();
+            }
+            else if (event.key === 'c' && event.ctrlKey) {
+                event.preventDefault();
+                event.currentTarget.contentEditable = false;
+
+                reject();
+                prompt();
+            }
+        });
+
+        screen.appendChild(inputElem);
+
+        inputElem.focus();
     });
-
-    screen.appendChild(inputElem);
-
-    inputElem.focus();
 }
