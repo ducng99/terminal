@@ -19,6 +19,7 @@ body {
 body {
   background: var(--bg);
   background-image: radial-gradient(ellipse, var(--bg) 0%, #050505 90%);
+  background-attachment: fixed;
   color: var(--color);
   font-size: 30px;
 }
@@ -100,18 +101,23 @@ body {
 
 /* Inserts the > before terminal input */
 .input:before {
-  content: "> ";
+  content: attr(data-prompt);
   white-space: nowrap;
 }
 
 /* Puts a blinking square after the content as replacement for caret */
-.input[contenteditable="true"]:after,
-.typer.active:after {
+.input[contenteditable="true"]::after,
+.typer.active:not(.input[contenteditable="true"] ~ .typer.active)::after {
   content: "■";
   animation: cursor 1s infinite;
   animation-timing-function: step-end;
   margin-left: 1px;
   line-height: 1rem;
+}
+
+.typer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* 
