@@ -1,3 +1,137 @@
+/**
+ * Insprired by https://codesandbox.io/s/crt-terminal-in-css-js-tlijm
+ * and http://aleclownes.com/2017/02/01/crt-display.html
+ */
+
 :root {
   font-family: "VT323", monospace;
+  --color: #5bf870;
+  --bg: #05321e;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+}
+
+body {
+  background: var(--bg);
+  background-image: radial-gradient(ellipse, var(--bg) 0%, #050505 90%);
+  color: var(--color);
+  font-size: 1.5rem;
+}
+
+::selection {
+  background: var(--color);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+#overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+
+  pointer-events: none;
+
+  width: 100%;
+  height: 100%;
+
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+    linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.06),
+      rgba(0, 255, 0, 0.02),
+      rgba(0, 0, 255, 0.06)
+    );
+  background-size:
+    100% 8px,
+    10px 100%;
+}
+
+#overlay::after {
+  content: "";
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(255, 255, 255, 0.2) 10%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+  opacity: 0.1;
+  position: absolute;
+  bottom: 100%;
+  animation: scanline 5s linear infinite;
+}
+
+@keyframes scanline {
+  0% {
+    bottom: 100%;
+  }
+  40% {
+    bottom: 100%;
+  }
+  100% {
+    bottom: -10%;
+  }
+}
+
+#screen {
+  padding: 2em 1.5em;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+[contenteditable] {
+  caret-color: transparent; /** This hides the default browser caret */
+  outline: none;
+}
+
+.input {
+  position: relative;
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Inserts the > before terminal input */
+.input:before {
+  content: "> ";
+}
+
+/* Puts a blinking square after the content as replacement for caret */
+.input[contenteditable="true"]:after,
+.typer.active:after {
+  content: "■";
+  animation: cursor 1s infinite;
+  animation-timing-function: step-end;
+  margin-left: 1px;
+  line-height: 1rem;
+}
+
+/* 
+ * This makes the caret (:after) show correctly after the previously typed character.
+ * Otherwise the caret is always on new line
+ */
+[contenteditable="true"] br:last-child {
+  display: none;
+}
+
+@keyframes cursor {
+  0% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
 }
