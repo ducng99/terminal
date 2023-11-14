@@ -20,7 +20,7 @@ body {
   background: var(--bg);
   background-image: radial-gradient(ellipse, var(--bg) 0%, #050505 90%);
   color: var(--color);
-  font-size: 1.5rem;
+  font-size: 30px;
 }
 
 ::selection {
@@ -101,6 +101,7 @@ body {
 /* Inserts the > before terminal input */
 .input:before {
   content: "> ";
+  white-space: nowrap;
 }
 
 /* Puts a blinking square after the content as replacement for caret */
