@@ -1,4 +1,5 @@
 import { setupScreen } from './src/screen';
+import { loadShell } from './src/shell';
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -8,3 +9,4 @@ document.querySelector('#app').innerHTML = `
 
 setupScreen(document.querySelector('#screen'));
 
+loadShell();

@@ -101,7 +101,7 @@ body {
 
 /* Inserts the > before terminal input */
 .input:before {
-  content: attr(data-prompt);
+  content: attr(data-prompt-symbol);
   white-space: nowrap;
 }
 

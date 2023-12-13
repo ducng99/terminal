@@ -1,5 +1,15 @@
 import { sleep } from "./utils";
 
+/**
+ * @typedef {Object} PrintOptions
+ * @property {number} preDelay Delay before printing
+ * @property {number} postDelay Delay after printing
+ * @property {number} printDelay Delay between each character
+ */
+
+/**
+ * @type {PrintOptions}
+ */
 const DEFAULT_PRINT_OPTIONS = {
     preDelay: 0,
     postDelay: 0,
@@ -7,15 +17,15 @@ const DEFAULT_PRINT_OPTIONS = {
 }
 
 /**
- * @param {HTMLElement} screen
+ * @param {HTMLElement} screen Screen element
  */
 export const setupScreen = (screen) => {
     /**
      * Prints text to the screen
      * @param {string} text
-     * @param {{ preDelay: number, postDelay: number, printDelay: number }} options
+     * @param {PrintOptions} options
      */
-    window.print = async (text, options) => {
+    window.s_print = async (text, options) => {
         const _options = {
             ...DEFAULT_PRINT_OPTIONS,
             ...options
@@ -24,7 +34,7 @@ export const setupScreen = (screen) => {
         // Disable active cursor
         screen.querySelectorAll('.typer.active').forEach(ele => ele.classList.remove('active'));
 
-        const outputElem = document.createElement('div');
+        const outputElem = document.createElement('span');
         outputElem.classList.add('typer', 'active');
 
         screen.appendChild(outputElem);
@@ -44,17 +54,18 @@ export const setupScreen = (screen) => {
      * @param {string} promptSymbol Prompt symbol to appear before receiving input. Eg. "> "
      * @returns {Promise<string>} The user's input or rejects if the user cancels.
      */
-    window.prompt = (promptSymbol = '') => {
+    window.s_prompt = (promptSymbol = '') => {
         return new Promise((resolve, reject) => {
             // Disable active cursor
             screen.querySelectorAll('.typer.active').forEach(ele => ele.classList.remove('active'));
             // Cancel previous prompts
+            // TODO: Should we queue prompts instead?
             screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => ele.dispatchEvent(new Event('cancel')));
 
             const inputElem = document.createElement('span');
             inputElem.classList.add('input');
             inputElem.contentEditable = true;
-            inputElem.setAttribute('data-prompt', promptSymbol);
+            inputElem.dataset.promptSymbol = promptSymbol;
 
             inputElem.addEventListener('keydown', (event) => {
                 event.stopPropagation();
@@ -88,9 +99,13 @@ export const setupScreen = (screen) => {
         });
     }
 
+    window.s_clear = () => {
+        screen.replaceChildren();
+    };
+
     // Focus on active input prompt if present
     const focusPrompt = () => {
-        const prompt = screen.querySelector('.input.active-cursor[contenteditable="true"]');
+        const prompt = screen.querySelector('.input[contenteditable="true"]:last-of-type');
         if (prompt) {
             prompt.focus();
 
