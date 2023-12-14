@@ -118,15 +118,15 @@ function parseCommand(commandString) {
     // Regular expression to match command and arguments
     // This will match either a sequence of non-space, non-quote characters,
     // or a sequence of characters inside double quotes (supporting escaped quotes)
-    var regex = /[^\s"']+|"([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'/g;
-    var parts = commandString.match(regex);
+    let regex = /[^\s"']+|"([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'/g;
+    let parts = commandString.match(regex);
 
     // The first part is the command
-    var command = parts[0];
+    let command = parts.splice(0, 1)[0];
 
     // The rest are the arguments
     // Remove quotes from arguments
-    var args = parts.slice(1).map(arg => arg.startsWith('"') ? arg.slice(1, -1).replace(/\\"/g, '"') : arg);
+    let args = parts.map(arg => arg.startsWith('"') ? arg.slice(1, -1).replace(/\\"/g, '"') : arg);
 
     return { command, args };
 }
