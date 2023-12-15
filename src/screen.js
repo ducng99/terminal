@@ -107,9 +107,11 @@ export const setupScreen = (screen) => {
                     if (removeAfter) {
                         event.currentTarget.remove();
                     }
-                }
-                else if (event.key === 'c' && event.ctrlKey) {
+                } else if (event.ctrlKey && event.key === 'c' && !event.shiftKey && !event.altKey && !event.metaKey) {
                     event.currentTarget.dispatchEvent(new PromptCancelEvent({ remove: removeAfter }));
+                } else if (event.ctrlKey && event.key === 'l' && !event.shiftKey && !event.altKey && !event.metaKey) {
+                    event.preventDefault();
+                    s_clear();
                 }
 
                 // Scroll to bottom of screen
@@ -123,8 +125,11 @@ export const setupScreen = (screen) => {
         });
     }
 
+    /**
+     * Clears the screen, except for the active prompt.
+     */
     window.s_clear = () => {
-        screen.replaceChildren();
+        screen.querySelectorAll(':not(.input[contenteditable="true"])').forEach(ele => ele.remove());
     };
 
     /**

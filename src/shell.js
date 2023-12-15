@@ -138,5 +138,6 @@ function parseCommand(commandString) {
 function loadDefaultCommands() {
     return Promise.all([
         loadScript("shell/commands/help/help.js"),
+        loadScript("shell/commands/clear/clear.js"),
     ]);
 }
