@@ -3,8 +3,13 @@
  * and http://aleclownes.com/2017/02/01/crt-display.html
  */
 
+@font-face {
+  font-family: "IBMVGA8";
+  src: url("assets/fonts/Web437_IBM_VGA_8x14.woff") format("woff");
+}
+
 :root {
-  font-family: "VT323", monospace;
+  font-family: "IBMVGA8", "VT323", monospace;
   --color: #5bf870;
   --bg: #05321e;
 }
@@ -73,9 +78,11 @@ body {
   0% {
     bottom: 100%;
   }
+
   40% {
     bottom: 100%;
   }
+
   100% {
     bottom: -10%;
   }
@@ -87,8 +94,10 @@ body {
   overflow-y: auto;
 }
 
-[contenteditable] {
-  caret-color: transparent; /** This hides the default browser caret */
+.input[contenteditable="true"] {
+  /** This hides the default browser caret */
+  caret-color: transparent;
+  /* caret-shape: block; */
   outline: none;
 }
 
@@ -97,6 +106,7 @@ body {
   /* display: inline-block; */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 /* Inserts prompt symbol/text before terminal input */
@@ -108,7 +118,8 @@ body {
 /* Puts a blinking square after the content as replacement for caret */
 .input[contenteditable="true"]::after,
 .typer.active:not(.input[contenteditable="true"] ~ .typer.active)::after {
-  content: "■";
+  content: " ";
+  background: var(--color);
   animation: cursor 1s infinite;
   animation-timing-function: step-end;
   margin-left: 1px;
@@ -132,12 +143,15 @@ body {
   0% {
     opacity: 1;
   }
+
   25% {
     opacity: 0;
   }
+
   75% {
     opacity: 1;
   }
+
   100% {
     opacity: 1;
   }

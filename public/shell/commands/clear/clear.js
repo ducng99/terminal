@@ -1,7 +1,6 @@
-s_registerCommand("clear", () => {
+function clearScreen() {
     s_clear();
-});
+}
 
-s_registerCommand("cls", () => {
-    s_clear();
-});
+s_registerCommand("clear", clearScreen);
+s_registerCommand("cls", clearScreen);
