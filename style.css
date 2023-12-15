@@ -94,12 +94,12 @@ body {
 
 .input {
   position: relative;
-  display: block;
+  /* display: inline-block; */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-/* Inserts the > before terminal input */
+/* Inserts prompt symbol/text before terminal input */
 .input:before {
   content: attr(data-prompt-symbol);
   white-space: nowrap;

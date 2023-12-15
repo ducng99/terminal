@@ -19,7 +19,7 @@ export async function loadShell() {
 }
 
 async function bootSequence() {
-    await s_print("BOOTING...", { preDelay: 2000, postDelay: 2000 });
+    await s_print("BOOTING...", { preDelay: 1500, postDelay: 500 });
     await s_print("\n\n", { printDelay: 0 });
 
     // Load default commands
@@ -49,11 +49,11 @@ async function bootSequence() {
     }
 
     await s_print("\n\n", { printDelay: 0 });
-    await s_print("BOOT COMPLETED!", { postDelay: 2000 });
+    await s_print("BOOT COMPLETED!", { postDelay: 1000 });
     await s_clear();
 
-    await s_print("Welcome to Old NET.", { preDelay: 1000, postDelay: 500 });
-    await s_print("\nType 'help' to get started.", { postDelay: 1000 });
+    await s_print("Welcome to Old NET.", { preDelay: 700, postDelay: 500 });
+    await s_print("\nType 'help' to get started.");
     await s_print("\n\n", { printDelay: 0 });
 }
 
