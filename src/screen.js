@@ -127,8 +127,12 @@ export const setupScreen = (screen) => {
             });
 
             inputElem.addEventListener('finish', function(event) {
-                const command = event.currentTarget.innerText;
                 event.currentTarget.contentEditable = false;
+                let command = event.currentTarget.innerText;
+
+                if (!_options.multiLine) {
+                    command = command.trim();
+                }
 
                 resolve(command);
 
@@ -143,6 +147,7 @@ export const setupScreen = (screen) => {
                 } else {
                     event.currentTarget.contentEditable = false;
                     event.currentTarget.appendChild(document.createTextNode('\n'));
+                    event.currentTarget.normalize();
                 }
 
                 reject(new Error('Cancelled'));
