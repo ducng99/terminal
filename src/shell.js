@@ -139,5 +139,6 @@ function loadDefaultCommands() {
     return Promise.all([
         loadScript("shell/commands/help/help.js"),
         loadScript("shell/commands/clear/clear.js"),
+        loadScript("shell/commands/texteditor/texteditor.js"),
     ]);
 }

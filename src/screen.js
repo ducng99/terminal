@@ -116,7 +116,6 @@ export const setupScreen = (screen) => {
                         inputElem.dispatchEvent(new Event('finish'));
                     }
                 } else if (event.ctrlKey && event.key === 'c' && !event.shiftKey && !event.altKey && !event.metaKey) {
-                    inputElem.appendChild(document.createTextNode('\n'));
                     inputElem.dispatchEvent(new PromptCancelEvent({ remove: _options.removeAfter }));
                 } else if (event.ctrlKey && event.key === 'l' && !event.shiftKey && !event.altKey && !event.metaKey) {
                     event.preventDefault();
@@ -143,6 +142,7 @@ export const setupScreen = (screen) => {
                     event.currentTarget.remove();
                 } else {
                     event.currentTarget.contentEditable = false;
+                    event.currentTarget.appendChild(document.createTextNode('\n'));
                 }
 
                 reject(new Error('Cancelled'));
@@ -171,15 +171,12 @@ export const setupScreen = (screen) => {
     };
 
     // Focus on active input prompt if present
-    // Move cursor to end of prompt on type
-    const focusPrompt = () => {
+    document.documentElement.addEventListener('keydown', () => {
         const prompt = screen.querySelector('.input[contenteditable="true"]');
         if (prompt) {
             prompt.focus();
         }
-    };
-    document.documentElement.addEventListener('keydown', focusPrompt);
-    // document.documentElement.addEventListener('mousedown', focusPrompt);
+    });
 
     function makeNewLineCharElementBig(charElement) {
         if (charElement.textContent === '\n') {
@@ -189,26 +186,28 @@ export const setupScreen = (screen) => {
         }
     }
 
+    // This takes care of caret blinking on a character, like insert mode.
+    // I pray one day to replace all these with CSS `caret-shape: block;`
     document.addEventListener('selectionchange', () => {
         const selection = window.getSelection();
 
         let foundNewBlinkingChar = false;
         const currentBlinkingChar = screen.querySelector('.input .char.blink');
 
-        if (selection.type === 'Caret' && selection.anchorNode) {
-            const currentSelectingElement = selection.anchorNode;
+        if (selection.type === 'Caret' && selection.focusNode) {
+            const currentSelectingElement = selection.focusNode;
             const parentSelectingElement = currentSelectingElement.parentElement;
 
             if (parentSelectingElement.classList.contains('input') && currentSelectingElement.nodeType === Node.TEXT_NODE) {
                 // We are selecting a text node under an input element
                 // Simply get the character and put it in a child span element to blink
                 // Gets the char we are on
-                const currentChar = currentSelectingElement.textContent[selection.anchorOffset];
+                const currentChar = currentSelectingElement.textContent[selection.focusOffset];
 
                 if (currentChar) {
                     parentSelectingElement.classList.remove('blink');
                     // Split the text node into two
-                    const rightTextNode = currentSelectingElement.splitText(selection.anchorOffset);
+                    const rightTextNode = currentSelectingElement.splitText(selection.focusOffset);
                     // Create a new span element for the character
                     const charElem = document.createElement('span');
                     charElem.classList.add('char', 'blink');
@@ -226,7 +225,7 @@ export const setupScreen = (screen) => {
 
                 const inputElem = parentSelectingElement.parentElement;
                 // Get the char we are on
-                const currentChar = currentSelectingElement.textContent[selection.anchorOffset];
+                const currentChar = currentSelectingElement.textContent[selection.focusOffset];
 
                 if (currentChar) {
                     // We are selecting a character inside a char element
@@ -244,7 +243,7 @@ export const setupScreen = (screen) => {
                         // The text after the current char will be moved back into the parent input element, after the current character
 
                         // Split the text node into two
-                        const rightTextNode = currentSelectingElement.splitText(selection.anchorOffset);
+                        const rightTextNode = currentSelectingElement.splitText(selection.focusOffset);
                         // Create a new span element for the character
                         const charElem = document.createElement('span');
                         charElem.classList.add('char', 'blink');
@@ -260,7 +259,7 @@ export const setupScreen = (screen) => {
                         foundNewBlinkingChar = true;
                     }
                 } else if (parentSelectingElement.nextSibling) {
-                    // We are not selecting text inside char element, which probably means we are selecting the last character in the input element
+                    // We are not selecting text inside char element, which probably means we are selecting the last character
                     // Now attempts to blink the first character in the next sibling node, which can be a text node or another char element
 
                     const nextNode = parentSelectingElement.nextSibling;
@@ -311,18 +310,19 @@ export const setupScreen = (screen) => {
                 // We are selecting the input element and there is no text in it
                 currentSelectingElement.classList.add('blink');
                 foundNewBlinkingChar = true;
-            } else if (currentSelectingElement.nodeType === Node.TEXT_NODE && selection.anchorOffset === currentSelectingElement.textContent.length && parentSelectingElement.lastChild === currentSelectingElement) {
+            } else if (currentSelectingElement.nodeType === Node.TEXT_NODE && selection.focusOffset === currentSelectingElement.textContent.length && parentSelectingElement.lastChild === currentSelectingElement) {
                 // We are selecting the last character in the last text node of the input element
                 // There is no next sibling node, so we can just blink the input element
                 parentSelectingElement.classList.add('blink');
                 foundNewBlinkingChar = true;
             }
-        } else if (selection.type === 'Range' && selection.anchorNode && screen.querySelector('.input[contenteditable="true"]')?.contains(selection.anchorNode)) {
+        } else if (selection.type === 'Range' && selection.focusNode && screen.querySelector('.input[contenteditable="true"]')?.contains(selection.focusNode)) {
+            screen.querySelectorAll('.input.blink').forEach(ele => ele.classList.remove('blink'));
             foundNewBlinkingChar = true;
         }
 
         if (foundNewBlinkingChar && currentBlinkingChar) {
-            // Remove blicking character
+            // Remove blinking character
             currentBlinkingChar.classList.remove('blink');
         }
 
