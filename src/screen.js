@@ -14,7 +14,7 @@ import { sleep } from "./utils";
 const DEFAULT_PRINT_OPTIONS = {
     preDelay: 0,
     postDelay: 0,
-    printDelay: 30,
+    printDelay: 16.6666667,
     printBeforeActivePrompt: true,
 }
 
@@ -112,11 +112,12 @@ export const setupScreen = (screen) => {
                     if (!_options.multiLine) {
                         event.preventDefault();
 
-                        inputElem.appendChild(document.createElement('br'));
+                        inputElem.appendChild(document.createTextNode('\n'));
                         inputElem.dispatchEvent(new Event('finish'));
                     }
                 } else if (event.ctrlKey && event.key === 'c' && !event.shiftKey && !event.altKey && !event.metaKey) {
-                    inputElem.dispatchEvent(new PromptCancelEvent({ remove: removeAfter }));
+                    inputElem.appendChild(document.createTextNode('\n'));
+                    inputElem.dispatchEvent(new PromptCancelEvent({ remove: _options.removeAfter }));
                 } else if (event.ctrlKey && event.key === 'l' && !event.shiftKey && !event.altKey && !event.metaKey) {
                     event.preventDefault();
                     s_clear();
