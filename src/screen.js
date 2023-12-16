@@ -19,6 +19,22 @@ const DEFAULT_PRINT_OPTIONS = {
 }
 
 /**
+ * @typedef {Object} PromptOptions
+ * @property {boolean} removeAfter Whether to remove the prompt from the screen after receiving input or cancelled. Defaults to `false`.
+ * @property {boolean} multiLine Whether to allow multi-line input. Use `onKeyDown` to specify when to stop reading user input. Defaults to `false`.
+ * @property {(event: KeyboardEvent) => void | undefined} onKeyDown Custom keydown event handler.
+ */
+
+/**
+ * @type {PromptOptions}
+ */
+const DEFAULT_PROMPT_OPTIONS = {
+    removeAfter: false,
+    multiLine: false,
+    onKeyDown: undefined,
+}
+
+/**
  * @param {HTMLElement} screen Screen element
  */
 export const setupScreen = (screen) => {
@@ -66,10 +82,15 @@ export const setupScreen = (screen) => {
     /**
      * Prompts the user for input.
      * @param {string} promptSymbol Prompt symbol to appear before receiving input. Eg. "> "
-     * @param {boolean} removeAfter Whether to remove the prompt from the screen after receiving input or cancelled.
+     * @param {PromptOptions} options
      * @returns {Promise<string>} The user's input or rejects if the user cancels.
      */
-    window.s_prompt = (promptSymbol = '', removeAfter = false) => {
+    window.s_prompt = (promptSymbol = '', options = {}) => {
+        const _options = {
+            ...DEFAULT_PROMPT_OPTIONS,
+            ...options
+        };
+
         return new Promise((resolve, reject) => {
             // Disable active cursor
             screen.querySelectorAll('.typer.active').forEach(ele => ele.classList.remove('active'));
@@ -78,37 +99,24 @@ export const setupScreen = (screen) => {
             screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => ele.dispatchEvent(new PromptCancelEvent()));
 
             const inputElem = document.createElement('span');
-            inputElem.classList.add('input');
+            inputElem.classList.add('input', 'blink');
             inputElem.contentEditable = true;
             inputElem.dataset.promptSymbol = promptSymbol;
 
-            const cancelInput = (event) => {
-                if (event && event.detail?.remove) {
-                    event.currentTarget.remove();
-                } else {
-                    event.currentTarget.contentEditable = false;
+            inputElem.addEventListener('keydown', (event) => {
+                if (_options.onKeyDown) {
+                    _options.onKeyDown(event);
                 }
 
-                reject(new Error('Cancelled'));
-            }
-
-            inputElem.addEventListener('keydown', (event) => {
-                event.stopPropagation();
-
                 if (event.key === 'Enter') {
-                    event.preventDefault();
+                    if (!_options.multiLine) {
+                        event.preventDefault();
 
-                    const command = inputElem.innerText;
-                    inputElem.appendChild(document.createElement('br'));
-                    event.currentTarget.contentEditable = false;
-
-                    resolve(command);
-
-                    if (removeAfter) {
-                        event.currentTarget.remove();
+                        inputElem.appendChild(document.createElement('br'));
+                        inputElem.dispatchEvent(new Event('finish'));
                     }
                 } else if (event.ctrlKey && event.key === 'c' && !event.shiftKey && !event.altKey && !event.metaKey) {
-                    event.currentTarget.dispatchEvent(new PromptCancelEvent({ remove: removeAfter }));
+                    inputElem.dispatchEvent(new PromptCancelEvent({ remove: removeAfter }));
                 } else if (event.ctrlKey && event.key === 'l' && !event.shiftKey && !event.altKey && !event.metaKey) {
                     event.preventDefault();
                     s_clear();
@@ -118,7 +126,26 @@ export const setupScreen = (screen) => {
                 window.scrollTo(0, screen.scrollHeight);
             });
 
-            inputElem.addEventListener('cancel', cancelInput);
+            inputElem.addEventListener('finish', function(event) {
+                const command = event.currentTarget.innerText;
+                event.currentTarget.contentEditable = false;
+
+                resolve(command);
+
+                if (_options.removeAfter) {
+                    event.currentTarget.remove();
+                }
+            });
+
+            inputElem.addEventListener('cancel', function(event) {
+                if (event && event.detail?.remove) {
+                    event.currentTarget.remove();
+                } else {
+                    event.currentTarget.contentEditable = false;
+                }
+
+                reject(new Error('Cancelled'));
+            });
 
             screen.appendChild(inputElem);
             inputElem.focus();
@@ -143,22 +170,170 @@ export const setupScreen = (screen) => {
     };
 
     // Focus on active input prompt if present
+    // Move cursor to end of prompt on type
     const focusPrompt = () => {
-        const prompt = screen.querySelector('.input[contenteditable="true"]:last-of-type');
+        const prompt = screen.querySelector('.input[contenteditable="true"]');
         if (prompt) {
             prompt.focus();
-
-            // Moves to end of prompt
-            const range = document.createRange();
-            range.selectNodeContents(prompt);
-            range.collapse(false);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
         }
     };
     document.documentElement.addEventListener('keydown', focusPrompt);
-    document.documentElement.addEventListener('mousedown', focusPrompt);
+    // document.documentElement.addEventListener('mousedown', focusPrompt);
+
+    function makeNewLineCharElementBig(charElement) {
+        if (charElement.textContent === '\n') {
+            charElement.classList.add('showNewLine');
+        } else {
+            charElement.classList.remove('showNewLine');
+        }
+    }
+
+    document.addEventListener('selectionchange', () => {
+        const selection = window.getSelection();
+
+        let foundNewBlinkingChar = false;
+        const currentBlinkingChar = screen.querySelector('.input .char.blink');
+
+        if (selection.type === 'Caret' && selection.anchorNode) {
+            const currentSelectingElement = selection.anchorNode;
+            const parentSelectingElement = currentSelectingElement.parentElement;
+
+            if (parentSelectingElement.classList.contains('input') && currentSelectingElement.nodeType === Node.TEXT_NODE) {
+                // We are selecting a text node under an input element
+                // Simply get the character and put it in a child span element to blink
+                // Gets the char we are on
+                const currentChar = currentSelectingElement.textContent[selection.anchorOffset];
+
+                if (currentChar) {
+                    parentSelectingElement.classList.remove('blink');
+                    // Split the text node into two
+                    const rightTextNode = currentSelectingElement.splitText(selection.anchorOffset);
+                    // Create a new span element for the character
+                    const charElem = document.createElement('span');
+                    charElem.classList.add('char', 'blink');
+                    charElem.textContent = currentChar;
+                    makeNewLineCharElementBig(charElem);
+                    // Insert the span element before the right text node
+                    parentSelectingElement.insertBefore(charElem, rightTextNode);
+                    // Remove the char from the text node
+                    rightTextNode.textContent = rightTextNode.textContent.substring(1);
+
+                    foundNewBlinkingChar = true;
+                }
+            } else if (parentSelectingElement.classList.contains('char')) {
+                // We are selecting text inside a char element
+
+                const inputElem = parentSelectingElement.parentElement;
+                // Get the char we are on
+                const currentChar = currentSelectingElement.textContent[selection.anchorOffset];
+
+                if (currentChar) {
+                    // We are selecting a character inside a char element
+                    // Remove the blink class from the parent input element
+                    inputElem.classList.remove('blink');
+
+                    if (currentSelectingElement.textContent.length === 1 && !parentSelectingElement.classList.contains('blink')) {
+                        // The current char element contains only one character, we can just blink it
+                        parentSelectingElement.classList.add('blink');
+                        makeNewLineCharElementBig(parentSelectingElement);
+                        foundNewBlinkingChar = true;
+                    } else if (currentSelectingElement.textContent.length > 1) {
+                        // We have more than one character in the current char element
+                        // We must create a new char element for the character we are on and place it after the current char element
+                        // The text after the current char will be moved back into the parent input element, after the current character
+
+                        // Split the text node into two
+                        const rightTextNode = currentSelectingElement.splitText(selection.anchorOffset);
+                        // Create a new span element for the character
+                        const charElem = document.createElement('span');
+                        charElem.classList.add('char', 'blink');
+                        charElem.textContent = currentChar;
+                        makeNewLineCharElementBig(charElem);
+                        // Insert the span element after the current char span node
+                        inputElem.insertBefore(charElem, parentSelectingElement.nextSibling);
+                        // Remove char from right text node
+                        rightTextNode.textContent = rightTextNode.textContent.substring(1);
+                        // Move right text node to after the new char span node
+                        inputElem.insertBefore(rightTextNode, charElem.nextSibling);
+
+                        foundNewBlinkingChar = true;
+                    }
+                } else if (parentSelectingElement.nextSibling) {
+                    // We are not selecting text inside char element, which probably means we are selecting the last character in the input element
+                    // Now attempts to blink the first character in the next sibling node, which can be a text node or another char element
+
+                    const nextNode = parentSelectingElement.nextSibling;
+                    const blinkNextSibling = () => {
+                        const nextChar = nextNode.textContent[0];
+
+                        const charElem = document.createElement('span');
+                        charElem.classList.add('char', 'blink');
+                        charElem.textContent = nextChar;
+                        makeNewLineCharElementBig(charElem);
+                        inputElem.insertBefore(charElem, nextNode);
+                        nextNode.textContent = nextNode.textContent.substring(1);
+
+                        foundNewBlinkingChar = true;
+                    }
+
+                    // Remove the blink class from the parent input element
+                    inputElem.classList.remove('blink');
+
+                    if (nextNode.nodeType === Node.TEXT_NODE) {
+                        blinkNextSibling();
+                    } else if (nextNode.nodeType === Node.ELEMENT_NODE && nextNode.classList.contains('char')) {
+                        // Blink the character in next sibling char element
+                        if (nextNode.textContent.length > 1) {
+                            // The next sibling char element contains more than one character, we need to create a new char element with the first character
+                            // and put it before the next sibling char element
+                            blinkNextSibling();
+                        } else if (nextNode.textContent.length === 1 && !nextNode.classList.contains('blink')) {
+                            // The next sibling char element has only one character
+                            // We can just blink the next sibling char element
+                            nextNode.classList.add('blink');
+                            makeNewLineCharElementBig(nextNode);
+                            foundNewBlinkingChar = true;
+                        }
+                    } else if (nextNode.nodeType === Node.ELEMENT_NODE && inputElem.lastChild === nextNode) {
+                        // This is an unknown element, which is most likely a br element at the end of span element (why????????)
+                        // Blink the input element
+                        inputElem.classList.add('blink');
+                        foundNewBlinkingChar = true;
+                    }
+                } else {
+                    // We are at the end of the input element
+                    // Blink the input element
+                    parentSelectingElement.parentElement.classList.add('blink');
+                    foundNewBlinkingChar = true;
+                }
+            } else if (currentSelectingElement.nodeType === Node.ELEMENT_NODE && currentSelectingElement.classList.contains('input') && currentSelectingElement.textContent.length === 0) {
+                // We are selecting the input element and there is no text in it
+                currentSelectingElement.classList.add('blink');
+                foundNewBlinkingChar = true;
+            } else if (currentSelectingElement.nodeType === Node.TEXT_NODE && selection.anchorOffset === currentSelectingElement.textContent.length && parentSelectingElement.lastChild === currentSelectingElement) {
+                // We are selecting the last character in the last text node of the input element
+                // There is no next sibling node, so we can just blink the input element
+                parentSelectingElement.classList.add('blink');
+                foundNewBlinkingChar = true;
+            }
+        } else if (selection.type === 'Range' && selection.anchorNode && screen.querySelector('.input[contenteditable="true"]')?.contains(selection.anchorNode)) {
+            foundNewBlinkingChar = true;
+        }
+
+        if (foundNewBlinkingChar && currentBlinkingChar) {
+            // Remove blicking character
+            currentBlinkingChar.classList.remove('blink');
+        }
+
+        screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => {
+            ele.normalize();
+        });
+
+        // If new line char element contain more than new line, remove showing
+        screen.querySelectorAll('.input .showNewLine').forEach(ele => {
+            makeNewLineCharElementBig(ele);
+        });
+    });
 }
 
 class PromptCancelEvent extends CustomEvent {
