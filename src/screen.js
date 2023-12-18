@@ -108,7 +108,7 @@ export const setupScreen = (screen) => {
                 inputElem.contentEditable = true;
                 inputElem.dataset.promptSymbol = promptSymbol;
 
-                inputElem.addEventListener('keydown', (event) => {
+                function onKeyDown(event) {
                     if (_options.onKeyDown) {
                         _options.onKeyDown(event);
                     }
@@ -124,9 +124,9 @@ export const setupScreen = (screen) => {
 
                     // Scroll to bottom of screen
                     window.scrollTo(0, screen.scrollHeight);
-                });
+                }
 
-                inputElem.addEventListener('finish', function(event) {
+                function onFinish(event) {
                     event.currentTarget.contentEditable = false;
                     let command = event.currentTarget.textContent;
 
@@ -139,9 +139,11 @@ export const setupScreen = (screen) => {
                     if (_options.removeAfter) {
                         event.currentTarget.remove();
                     }
-                });
 
-                inputElem.addEventListener('cancel', function(event) {
+                    removeEvents(event.currentTarget);
+                }
+
+                function onCancel(event) {
                     if (_options.removeAfter || event.detail?.remove) {
                         event.currentTarget.remove();
                     } else {
@@ -151,7 +153,19 @@ export const setupScreen = (screen) => {
                     }
 
                     reject(new Error('Cancelled'));
-                });
+
+                    removeEvents(event.currentTarget);
+                }
+
+                function removeEvents(element) {
+                    element.removeEventListener('keydown', onKeyDown);
+                    element.removeEventListener('finish', onFinish);
+                    element.removeEventListener('cancel', onCancel);
+                }
+
+                inputElem.addEventListener('keydown', onKeyDown);
+                inputElem.addEventListener('finish', onFinish);
+                inputElem.addEventListener('cancel', onCancel);
 
                 screen.appendChild(inputElem);
                 inputElem.focus();
