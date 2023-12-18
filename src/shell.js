@@ -1,5 +1,5 @@
 import { loadScript } from "./utils";
-import { PromptCancelEvent } from "./screen-globals";
+import { PromptCancelEvent } from "./screen";
 import { CommandHistory } from "./shell-history";
 
 /**
@@ -17,6 +17,7 @@ export async function loadShell() {
     // Expose functions to the window
     window.shell.registerCommand = registerCommand;
     window.shell.getCommands = getCommands;
+    window.shell.loadScript = loadScript;
 
     await bootSequence();
     beginShell();

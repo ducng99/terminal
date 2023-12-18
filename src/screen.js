@@ -1,5 +1,4 @@
 import { sleep } from "./utils";
-import { PromptCancelEvent } from "./screen-globals";
 
 /**
  * @typedef {Object} PrintOptions
@@ -15,7 +14,7 @@ import { PromptCancelEvent } from "./screen-globals";
 const DEFAULT_PRINT_OPTIONS = {
     preDelay: 0,
     postDelay: 0,
-    printDelay: 16.6666667,
+    printDelay: 8,
     printBeforeActivePrompt: true,
 }
 
@@ -51,6 +50,9 @@ export const setupScreen = (screen) => {
                 ...options
             };
 
+            // Strips CSI codes
+            text = text.replace(/\x1b\[[0-9;]*m/g, '');
+
             // Disable active cursor
             screen.querySelectorAll('.typer.active').forEach(ele => ele.classList.remove('active'));
 
@@ -71,14 +73,15 @@ export const setupScreen = (screen) => {
 
             screen.insertBefore(outputElem, activeInputElem);
 
-            await sleep(_options.preDelay);
+            if (_options.preDelay > 0) await sleep(_options.preDelay);
 
             for (let i = 0; i < text.length; i++) {
                 outputElem.textContent += text[i];
-                await sleep(_options.printDelay);
+                window.scrollTo(0, screen.scrollHeight);
+                if (_options.printDelay > 0) await sleep(_options.printDelay);
             }
 
-            await sleep(_options.postDelay);
+            if (_options.postDelay > 0) await sleep(_options.postDelay);
         },
 
         /**
@@ -351,4 +354,14 @@ export const setupScreen = (screen) => {
             makeNewLineCharElementBig(ele);
         });
     });
+}
+
+export class PromptCancelEvent extends CustomEvent {
+    constructor(options = {}) {
+        super('cancel', {
+            detail: {
+                remove: options.remove
+            }
+        });
+    }
 }
