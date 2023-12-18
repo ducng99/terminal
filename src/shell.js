@@ -134,7 +134,6 @@ function getCommands() {
 function autoCompleteCommand(command) {
     let commands = getCommands();
     let matches = commands.filter(c => c.startsWith(command)).sort((a, b) => a.localeCompare(b));
-    console.log(matches);
 
     if (matches.length === 1) {
         return matches[0];
@@ -160,7 +159,12 @@ function autoCompleteCommand(command) {
  */
 async function runCommand(name, args) {
     if (name in commands) {
-        await commands[name](args);
+        try {
+            await commands[name](args);
+        } catch (ex) {
+            console.error(ex);
+            await shell.print(`Error: ${ex.message}\n`);
+        }
     } else {
         await shell.print(`Command not found: ${name}\n`);
     }
