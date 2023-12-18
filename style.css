@@ -54,8 +54,8 @@ body {
       rgba(0, 0, 255, 0.06)
     );
   background-size:
-    100% 8px,
-    10px 100%;
+    100% 0.5rem,
+    0.6rem 100%;
 }
 
 #overlay::after {

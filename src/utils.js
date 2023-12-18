@@ -16,7 +16,7 @@ export function loadScript(url) {
     return new Promise((resolve, reject) => {
         let scriptEle = document.createElement('script');
         scriptEle.src = url;
-        scriptEle.type = "text/javascript";
+        scriptEle.type = "module";
 
         scriptEle.onload = () => { resolve(); };
         scriptEle.onerror = () => { reject(); };

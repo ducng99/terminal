@@ -1,4 +1,5 @@
-import { loadScript } from "./utils.js";
+import { loadScript } from "./utils";
+import { PromptCancelEvent } from "./screen-globals";
 
 /**
  * Command to exit the shell
@@ -11,16 +12,16 @@ let commands = {};
 
 export async function loadShell() {
     // Expose functions to the window
-    window.s_registerCommand = registerCommand;
-    window.s_getCommands = getCommands;
+    window.shell.registerCommand = registerCommand;
+    window.shell.getCommands = getCommands;
 
     await bootSequence();
     beginShell();
 }
 
 async function bootSequence() {
-    await s_print("BOOTING...", { preDelay: 1500, postDelay: 500 });
-    await s_print("\n\n", { printDelay: 0 });
+    await shell.print("BOOTING...", { preDelay: 1500, postDelay: 500 });
+    await shell.print("\n\n", { printDelay: 0 });
 
     // Load default commands
     {
@@ -35,26 +36,26 @@ async function bootSequence() {
                 defaultCommandsLoaded = true;
             });
 
-        await s_print("LOADING DEFAULT PROGRAMS...");
+        await shell.print("LOADING DEFAULT PROGRAMS...");
 
         while (!defaultCommandsLoaded) {
-            await s_print(".", { postDelay: 500 });
+            await shell.print(".", { postDelay: 500 });
         }
 
         if (defaultCommandsLoadError) {
-            await s_print(" ERROR");
+            await shell.print(" ERROR");
         } else {
-            await s_print(" OK");
+            await shell.print(" OK");
         }
     }
 
-    await s_print("\n\n", { printDelay: 0 });
-    await s_print("BOOT COMPLETED!", { postDelay: 1000 });
-    await s_clear();
+    await shell.print("\n\n", { printDelay: 0 });
+    await shell.print("BOOT COMPLETED!", { postDelay: 1000 });
+    await shell.clear();
 
-    await s_print("Welcome to Old NET.", { preDelay: 700, postDelay: 500 });
-    await s_print("\nType 'help' to get started.");
-    await s_print("\n\n", { printDelay: 0 });
+    await shell.print("Welcome to Old NET.", { preDelay: 700, postDelay: 500 });
+    await shell.print("\nType 'help' to get started.");
+    await shell.print("\n\n", { printDelay: 0 });
 }
 
 async function beginShell() {
@@ -62,7 +63,7 @@ async function beginShell() {
 
     while (user_input !== EXIT_COMMAND) {
         try {
-            user_input = await s_prompt("> ");
+            user_input = await shell.prompt("> ", { onKeyDown: shellPromptKeyDownHandler });
             if (user_input === "" || user_input === EXIT_COMMAND) continue;
 
             const { command, args } = parseCommand(user_input);
@@ -72,7 +73,34 @@ async function beginShell() {
         }
     }
 
-    await s_print("Goodbye!", { postDelay: 2000 });
+    await shell.print("Goodbye!", { postDelay: 2000 });
+}
+
+/**
+ * Handles key down events in the shell prompt
+ * @param {KeyboardEvent} event Key down event
+ */
+function shellPromptKeyDownHandler(event) {
+    switch (event.key) {
+        case 'c':
+            if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+                event.currentTarget.dispatchEvent(new PromptCancelEvent());
+            }
+            break;
+        case 'l':
+            if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+                event.preventDefault();
+                shell.clear();
+            }
+            break;
+        case 'Tab':
+            event.preventDefault();
+            let autoComplete = autoCompleteCommand(event.currentTarget.textContent);
+            if (autoComplete !== "") {
+                event.currentTarget.textContent = autoComplete;
+            }
+            break;
+    }
 }
 
 /**
@@ -97,6 +125,35 @@ function getCommands() {
 }
 
 /**
+ * Auto-completes a command.
+ * If there is only one match, returns the match.
+ * If there are multiple matches, returns partial match up to the first difference.
+ * If there are no matches, returns an empty string.
+ * @param {string} command Current user input to auto-complete
+ */
+function autoCompleteCommand(command) {
+    let commands = getCommands();
+    let matches = commands.filter(c => c.startsWith(command)).sort((a, b) => a.localeCompare(b));
+    console.log(matches);
+
+    if (matches.length === 1) {
+        return matches[0];
+    } else if (matches.length > 1) {
+        let firstMatch = matches[0];
+        let lastMatch = matches[matches.length - 1];
+
+        let i = 0;
+        while (firstMatch[i] === lastMatch[i]) {
+            i++;
+        }
+
+        return firstMatch.slice(0, i);
+    } else {
+        return "";
+    }
+}
+
+/**
  * Runs a command
  * @param {string} name Name of the command
  * @param {string[]} args Arguments passed to the command
@@ -105,7 +162,7 @@ async function runCommand(name, args) {
     if (name in commands) {
         await commands[name](args);
     } else {
-        await s_print(`Command not found: ${name}\n`);
+        await shell.print(`Command not found: ${name}\n`);
     }
 }
 
@@ -140,5 +197,7 @@ function loadDefaultCommands() {
         loadScript("shell/commands/help/help.js"),
         loadScript("shell/commands/clear/clear.js"),
         loadScript("shell/commands/texteditor/texteditor.js"),
+        loadScript("shell/commands/dungeon-crawler/dungeon-crawler.js"),
+        loadScript("shell/commands/chat/chat.js"),
     ]);
 }

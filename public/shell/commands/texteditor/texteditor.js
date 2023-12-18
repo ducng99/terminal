@@ -1,5 +1,5 @@
-s_registerCommand("texteditor", async () => {
-    await s_print(`Hi! This is the most basic and useless text editor that no one should use.
+shell.registerCommand("texteditor", async () => {
+    await shell.print(`Hi! This is the most basic and useless text editor that no one should use.
 
 You can type text and delete them. And navigate around the text (whaaaaaaaaaaaaaat!!).
 Press Escape to exit and save it as file.
@@ -7,12 +7,12 @@ Press Escape to exit and save it as file.
 Continue? (Y/n) `);
 
     try {
-        let userConfirm = (await s_prompt()).toLowerCase();
+        let userConfirm = (await shell.prompt()).toLowerCase();
 
         if (userConfirm === '' || userConfirm === 'y') {
-            s_clear();
+            shell.clear();
 
-            let textContent = await s_prompt("", {
+            let textContent = await shell.prompt("", {
                 multiLine: true,
                 onKeyDown: (event) => {
                     if (event.key === "Escape") {
@@ -21,20 +21,20 @@ Continue? (Y/n) `);
                 }
             });
 
-            s_clear();
+            shell.clear();
 
-            await s_print("Do you want to save the file? (Y/n) ");
-            let userConfirmSave = (await s_prompt()).toLowerCase();
+            await shell.print("Do you want to save as file? (Y/n) ");
+            let userConfirmSave = (await shell.prompt()).toLowerCase();
 
             if (userConfirmSave === '' || userConfirmSave === 'y') {
-                await s_print('Save as: ');
-                let fileName = await s_prompt();
+                await shell.print('File name: ');
+                let fileName = await shell.prompt();
 
                 if (fileName === '') {
-                    fileName = 'untitled';
+                    fileName = 'untitled.txt';
                 }
 
-                await s_print(`Saving as ${fileName}...`);
+                await shell.print(`Saving as ${fileName}...`);
 
                 // Download file
                 let element = document.createElement('a');
@@ -43,10 +43,10 @@ Continue? (Y/n) `);
                 element.style.display = 'none';
                 element.click();
 
-                await s_print(' OK\n');
+                await shell.print(' OK\n');
             }
         }
     } catch (e) {
-        // User cancelled. Just exit the program.
+        await shell.print("User cancelled! Exiting...\n");
     }
 });

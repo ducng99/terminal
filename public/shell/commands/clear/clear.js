@@ -1,6 +1,6 @@
 function clearScreen() {
-    s_clear();
+    shell.clear();
 }
 
-s_registerCommand("clear", clearScreen);
-s_registerCommand("cls", clearScreen);
+shell.registerCommand("clear", clearScreen);
+shell.registerCommand("cls", clearScreen);

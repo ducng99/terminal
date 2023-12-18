@@ -1,4 +1,5 @@
 import { sleep } from "./utils";
+import { PromptCancelEvent } from "./screen-globals";
 
 /**
  * @typedef {Object} PrintOptions
@@ -21,7 +22,7 @@ const DEFAULT_PRINT_OPTIONS = {
 /**
  * @typedef {Object} PromptOptions
  * @property {boolean} removeAfter Whether to remove the prompt from the screen after receiving input or cancelled. Defaults to `false`.
- * @property {boolean} multiLine Whether to allow multi-line input. Use `onKeyDown` to specify when to stop reading user input. Defaults to `false`.
+ * @property {boolean} multiLine Whether to allow multi-line input. As `Enter` no longer end the prompt, use `onKeyDown` to specify when to stop reading user input. Defaults to `false`.
  * @property {(event: KeyboardEvent) => void | undefined} onKeyDown Custom keydown event handler.
  */
 
@@ -38,141 +39,138 @@ const DEFAULT_PROMPT_OPTIONS = {
  * @param {HTMLElement} screen Screen element
  */
 export const setupScreen = (screen) => {
-    /**
-     * Prints text to the screen
-     * @param {string} text
-     * @param {PrintOptions} options
-     */
-    window.s_print = async (text, options) => {
-        const _options = {
-            ...DEFAULT_PRINT_OPTIONS,
-            ...options
-        };
+    window.shell = {
+        /**
+         * Prints text to the screen
+         * @param {string} text
+         * @param {PrintOptions?} options
+         */
+        print: async (text, options = {}) => {
+            const _options = {
+                ...DEFAULT_PRINT_OPTIONS,
+                ...options
+            };
 
-        // Disable active cursor
-        screen.querySelectorAll('.typer.active').forEach(ele => ele.classList.remove('active'));
-
-        const outputElem = document.createElement('span');
-        outputElem.classList.add('typer');
-
-        let activeInputElem = null;
-
-        if (_options.printBeforeActivePrompt) {
-            activeInputElem = screen.querySelector('.input[contenteditable="true"]:last-of-type');
-        }
-
-        // If there is no active input prompt, we can add active cursor to this print.
-        // Otherwise, we will have two active cursors.
-        if (!activeInputElem) {
-            outputElem.classList.add('active');
-        }
-
-        screen.insertBefore(outputElem, activeInputElem);
-
-        await sleep(_options.preDelay);
-
-        for (let i = 0; i < text.length; i++) {
-            outputElem.textContent += text[i];
-            await sleep(_options.printDelay);
-        }
-
-        await sleep(_options.postDelay);
-    }
-
-    /**
-     * Prompts the user for input.
-     * @param {string} promptSymbol Prompt symbol to appear before receiving input. Eg. "> "
-     * @param {PromptOptions} options
-     * @returns {Promise<string>} The user's input or rejects if the user cancels.
-     */
-    window.s_prompt = (promptSymbol = '', options = {}) => {
-        const _options = {
-            ...DEFAULT_PROMPT_OPTIONS,
-            ...options
-        };
-
-        return new Promise((resolve, reject) => {
             // Disable active cursor
             screen.querySelectorAll('.typer.active').forEach(ele => ele.classList.remove('active'));
-            // Cancel previous prompts
-            // TODO: Should we queue prompts instead?
-            screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => ele.dispatchEvent(new PromptCancelEvent()));
 
-            const inputElem = document.createElement('span');
-            inputElem.classList.add('input', 'blink');
-            inputElem.contentEditable = true;
-            inputElem.dataset.promptSymbol = promptSymbol;
+            const outputElem = document.createElement('span');
+            outputElem.classList.add('typer');
 
-            inputElem.addEventListener('keydown', (event) => {
-                if (_options.onKeyDown) {
-                    _options.onKeyDown(event);
-                }
+            let activeInputElem = null;
 
-                if (event.key === 'Enter') {
-                    if (!_options.multiLine) {
-                        event.preventDefault();
+            if (_options.printBeforeActivePrompt) {
+                activeInputElem = screen.querySelector('.input[contenteditable="true"]:last-of-type');
+            }
 
-                        inputElem.appendChild(document.createTextNode('\n'));
-                        inputElem.dispatchEvent(new Event('finish'));
+            // If there is no active input prompt, we can add active cursor to this print.
+            // Otherwise, we will have two active cursors.
+            if (!activeInputElem) {
+                outputElem.classList.add('active');
+            }
+
+            screen.insertBefore(outputElem, activeInputElem);
+
+            await sleep(_options.preDelay);
+
+            for (let i = 0; i < text.length; i++) {
+                outputElem.textContent += text[i];
+                await sleep(_options.printDelay);
+            }
+
+            await sleep(_options.postDelay);
+        },
+
+        /**
+         * Prompts the user for input.
+         * @param {string} promptSymbol Prompt symbol to appear before receiving input. Eg. "> "
+         * @param {PromptOptions} options
+         * @returns {Promise<string>} The user's input or rejects if the user cancels.
+         */
+        prompt: (promptSymbol = '', options = {}) => {
+            const _options = {
+                ...DEFAULT_PROMPT_OPTIONS,
+                ...options
+            };
+
+            return new Promise((resolve, reject) => {
+                // Disable active cursor
+                screen.querySelectorAll('.typer.active').forEach(ele => ele.classList.remove('active'));
+                // Cancel previous prompts
+                // TODO: Should we queue prompts instead?
+                screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => ele.dispatchEvent(new PromptCancelEvent()));
+
+                const inputElem = document.createElement('span');
+                inputElem.classList.add('input', 'blink');
+                inputElem.contentEditable = true;
+                inputElem.dataset.promptSymbol = promptSymbol;
+
+                inputElem.addEventListener('keydown', (event) => {
+                    if (_options.onKeyDown) {
+                        _options.onKeyDown(event);
                     }
-                } else if (event.ctrlKey && event.key === 'c' && !event.shiftKey && !event.altKey && !event.metaKey) {
-                    inputElem.dispatchEvent(new PromptCancelEvent({ remove: _options.removeAfter }));
-                } else if (event.ctrlKey && event.key === 'l' && !event.shiftKey && !event.altKey && !event.metaKey) {
-                    event.preventDefault();
-                    s_clear();
-                }
 
-                // Scroll to bottom of screen
-                window.scrollTo(0, screen.scrollHeight);
-            });
+                    if (event.key === 'Enter') {
+                        if (!_options.multiLine) {
+                            event.preventDefault();
 
-            inputElem.addEventListener('finish', function(event) {
-                event.currentTarget.contentEditable = false;
-                let command = event.currentTarget.innerText;
+                            inputElem.appendChild(document.createTextNode('\n'));
+                            inputElem.dispatchEvent(new Event('finish'));
+                        }
+                    }
 
-                if (!_options.multiLine) {
-                    command = command.trim();
-                }
+                    // Scroll to bottom of screen
+                    window.scrollTo(0, screen.scrollHeight);
+                });
 
-                resolve(command);
-
-                if (_options.removeAfter) {
-                    event.currentTarget.remove();
-                }
-            });
-
-            inputElem.addEventListener('cancel', function(event) {
-                if (event && event.detail?.remove) {
-                    event.currentTarget.remove();
-                } else {
+                inputElem.addEventListener('finish', function (event) {
                     event.currentTarget.contentEditable = false;
-                    event.currentTarget.appendChild(document.createTextNode('\n'));
-                    event.currentTarget.normalize();
-                }
+                    let command = event.currentTarget.textContent;
 
-                reject(new Error('Cancelled'));
+                    if (!_options.multiLine) {
+                        command = command.trim();
+                    }
+
+                    resolve(command);
+
+                    if (_options.removeAfter) {
+                        event.currentTarget.remove();
+                    }
+                });
+
+                inputElem.addEventListener('cancel', function (event) {
+                    if (_options.removeAfter || event.detail?.remove) {
+                        event.currentTarget.remove();
+                    } else {
+                        event.currentTarget.contentEditable = false;
+                        event.currentTarget.appendChild(document.createTextNode('\n'));
+                        event.currentTarget.normalize();
+                    }
+
+                    reject(new Error('Cancelled'));
+                });
+
+                screen.appendChild(inputElem);
+                inputElem.focus();
             });
+        },
 
-            screen.appendChild(inputElem);
-            inputElem.focus();
-        });
-    }
+        /**
+         * Clears the screen, except for the active prompt.
+         */
+        clear: () => {
+            screen.querySelectorAll(':not(.input[contenteditable="true"])').forEach(ele => ele.remove());
+        },
 
-    /**
-     * Clears the screen, except for the active prompt.
-     */
-    window.s_clear = () => {
-        screen.querySelectorAll(':not(.input[contenteditable="true"])').forEach(ele => ele.remove());
-    };
-
-    /**
-     * Cancels all active prompts.
-     * @param {boolean} remove Whether to remove the prompt from the screen.
-     */
-    window.s_cancelPrompt = (remove = false) => {
-        screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => {
-            ele.dispatchEvent(new PromptCancelEvent({ remove }));
-        });
+        /**
+         * Cancels all active prompts.
+         * @param {boolean} remove Whether to remove the prompt from the screen.
+         */
+        cancelPrompt: (remove = false) => {
+            screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => {
+                ele.dispatchEvent(new PromptCancelEvent({ remove }));
+            });
+        },
     };
 
     // Focus on active input prompt if present
@@ -340,14 +338,4 @@ export const setupScreen = (screen) => {
             makeNewLineCharElementBig(ele);
         });
     });
-}
-
-class PromptCancelEvent extends CustomEvent {
-    constructor(options = {}) {
-        super('cancel', {
-            detail: {
-                remove: options.remove
-            }
-        });
-    }
 }

@@ -1,3 +1,3 @@
-s_registerCommand('help', async function() {
-    await s_print('Available commands: ' + s_getCommands().join(', ') + '\n');
+shell.registerCommand('help', async function () {
+    await shell.print('Available commands: ' + shell.getCommands().join(', ') + '\n');
 });
