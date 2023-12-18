@@ -1,5 +1,6 @@
 import { loadScript } from "./utils";
 import { PromptCancelEvent } from "./screen-globals";
+import { CommandHistory } from "./shell-history";
 
 /**
  * Command to exit the shell
@@ -9,6 +10,8 @@ const EXIT_COMMAND = "exit";
 // List of commands and their functions
 /** @type {{ [key: string]: (args: string[]) => Promise<any> | any }} */
 let commands = {};
+
+const commandHistory = new CommandHistory();
 
 export async function loadShell() {
     // Expose functions to the window
@@ -66,6 +69,8 @@ async function beginShell() {
             user_input = await shell.prompt("> ", { onKeyDown: shellPromptKeyDownHandler });
             if (user_input === "" || user_input === EXIT_COMMAND) continue;
 
+            commandHistory.add(user_input);
+
             const { command, args } = parseCommand(user_input);
             await runCommand(command, args);
         } catch (ex) {
@@ -96,8 +101,25 @@ function shellPromptKeyDownHandler(event) {
         case 'Tab':
             event.preventDefault();
             let autoComplete = autoCompleteCommand(event.currentTarget.textContent);
-            if (autoComplete !== "") {
+            if (autoComplete !== null) {
                 event.currentTarget.textContent = autoComplete;
+            }
+            break;
+        case 'ArrowUp':
+            event.preventDefault();
+            let previousCommand = commandHistory.getPrevious(event.currentTarget.textContent);
+            if (previousCommand !== null) {
+                event.currentTarget.textContent = previousCommand;
+                shell.moveCursorToEnd();
+            }
+            break;
+        case 'ArrowDown':
+            event.preventDefault();
+            let nextCommand = commandHistory.getNext();
+
+            if (nextCommand !== null) {
+                event.currentTarget.textContent = nextCommand;
+                shell.moveCursorToEnd();
             }
             break;
     }
@@ -148,7 +170,7 @@ function autoCompleteCommand(command) {
 
         return firstMatch.slice(0, i);
     } else {
-        return "";
+        return null;
     }
 }
 

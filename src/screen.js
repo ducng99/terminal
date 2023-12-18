@@ -123,7 +123,7 @@ export const setupScreen = (screen) => {
                     window.scrollTo(0, screen.scrollHeight);
                 });
 
-                inputElem.addEventListener('finish', function (event) {
+                inputElem.addEventListener('finish', function(event) {
                     event.currentTarget.contentEditable = false;
                     let command = event.currentTarget.textContent;
 
@@ -138,7 +138,7 @@ export const setupScreen = (screen) => {
                     }
                 });
 
-                inputElem.addEventListener('cancel', function (event) {
+                inputElem.addEventListener('cancel', function(event) {
                     if (_options.removeAfter || event.detail?.remove) {
                         event.currentTarget.remove();
                     } else {
@@ -170,6 +170,19 @@ export const setupScreen = (screen) => {
             screen.querySelectorAll('.input[contenteditable="true"]').forEach(ele => {
                 ele.dispatchEvent(new PromptCancelEvent({ remove }));
             });
+        },
+
+        moveCursorToEnd: () => {
+            const inputElem = screen.querySelector('.input[contenteditable="true"]:last-of-type');
+
+            if (inputElem) {
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(inputElem);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
         },
     };
 
