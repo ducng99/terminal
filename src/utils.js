@@ -18,8 +18,8 @@ export function loadScript(url, is_module = true) {
         scriptEle.src = url;
         scriptEle.type = is_module ? "module" : "text/javascript";
 
-        scriptEle.onload = () => { resolve(); };
-        scriptEle.onerror = () => { reject(); };
+        scriptEle.addEventListener('load', () => { scriptEle.remove(); resolve(); });
+        scriptEle.addEventListener('error', () => { scriptEle.remove(); reject(); });
 
         document.body.appendChild(scriptEle);
     });

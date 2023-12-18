@@ -176,7 +176,7 @@ export const setupScreen = (screen) => {
          * Clears the screen, except for the active prompt.
          */
         clear: () => {
-            screen.querySelectorAll(':not(.input[contenteditable="true"])').forEach(ele => ele.remove());
+            screen.querySelectorAll('.typer, .input:not([contenteditable="true"])').forEach(ele => ele.remove());
         },
 
         /**
@@ -211,6 +211,11 @@ export const setupScreen = (screen) => {
         }
     });
 
+    /**
+     * Make element with only new line character bigger to display a blinking cursor
+     * By default, new line character is not visible
+     * @param {HTMLElement} charElement
+     */
     function makeNewLineCharElementBig(charElement) {
         if (charElement.textContent === '\n') {
             charElement.classList.add('showNewLine');
