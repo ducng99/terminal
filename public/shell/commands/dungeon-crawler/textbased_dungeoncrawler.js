@@ -1,5 +1,5 @@
 
-var create_dungeoncrawler_module = (() => {
+var Module = (() => {
   var _scriptDir = import.meta.url;
   
   return (
@@ -421,8 +421,6 @@ var __ATPOSTRUN__ = []; // functions called after the main() is called
 
 var runtimeInitialized = false;
 
-var runtimeExited = false;
-
 function preRun() {
   if (Module['preRun']) {
     if (typeof Module['preRun'] == 'function') Module['preRun'] = [Module['preRun']];
@@ -454,19 +452,6 @@ function preMain() {
   callRuntimeCallbacks(__ATMAIN__);
 }
 
-function exitRuntime() {
-  assert(!runtimeExited);
-  // ASYNCIFY cannot be used once the runtime starts shutting down.
-  Asyncify.state = Asyncify.State.Disabled;
-  checkStackCookie();
-  ___funcs_on_exit(); // Native atexit() functions
-  callRuntimeCallbacks(__ATEXIT__);
-  FS.quit();
-TTY.shutdown();
-IDBFS.quit();
-  runtimeExited = true;
-}
-
 function postRun() {
   checkStackCookie();
 
@@ -493,7 +478,6 @@ function addOnPreMain(cb) {
 }
 
 function addOnExit(cb) {
-  __ATEXIT__.unshift(cb);
 }
 
 function addOnPostRun(cb) {
@@ -652,7 +636,6 @@ var isFileURI = (filename) => filename.startsWith('file://');
 function createExportWrapper(name) {
   return function() {
     assert(runtimeInitialized, `native function \`${name}\` called before runtime initialization`);
-    assert(!runtimeExited, `native function \`${name}\` called after runtime exit (use NO_EXIT_RUNTIME to keep it alive after main() exits)`);
     var f = wasmExports[name];
     assert(f, `exported native function \`${name}\` not found`);
     return f.apply(null, arguments);
@@ -926,8 +909,8 @@ function dbg(text) {
 // end include: runtime_debug.js
 // === Body ===
 
-function __asyncjs__initFileStorage(saveDir) { return Asyncify.handleAsync(async () => { await new Promise((resolve, reject) => { const dir = UTF8ToString(saveDir); FS.mkdir(dir); FS.mount(IDBFS, {}, dir); FS.syncfs(true, function(err) { if (err) { reject(err); } else { resolve(); } }); }); }); }
-function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => { await new Promise((resolve, reject) => { FS.syncfs(function(err) { if (err) { reject(err); } else { resolve(); } }); }); }); }
+function __asyncjs__initFileStorage(saveDir) { return Asyncify.handleAsync(async () => { const dir = UTF8ToString(saveDir); FS.mkdir(dir); FS.mount(IDBFS, {}, dir); await new Promise((resolve, reject) => { FS.syncfs(true, function(err) { if (err) { reject(err); } else { resolve(); } }); }); return; }); }
+function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => { await new Promise((resolve, reject) => { FS.syncfs(function(err) { if (err) { reject(err); } else { resolve(); } }); }); return; }); }
 
 
 // end include: preamble.js
@@ -966,7 +949,7 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
     }
   }
 
-  var noExitRuntime = Module['noExitRuntime'] || false;
+  var noExitRuntime = Module['noExitRuntime'] || true;
 
   var ptrToString = (ptr) => {
       assert(typeof ptr === 'number');
@@ -5237,9 +5220,7 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
   var exitJS = (status, implicit) => {
       EXITSTATUS = status;
   
-      if (!keepRuntimeAlive()) {
-        exitRuntime();
-      }
+      checkUnflushedContent();
   
       // if exit() was called explicitly, warn the user if the runtime isn't actually being shut down
       if (keepRuntimeAlive() && !implicit) {
@@ -5254,9 +5235,6 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
   
   
   var maybeExit = () => {
-      if (runtimeExited) {
-        return;
-      }
       if (!keepRuntimeAlive()) {
         try {
           _exit(EXITSTATUS);
@@ -5266,7 +5244,7 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
       }
     };
   var callUserCallback = (func) => {
-      if (runtimeExited || ABORT) {
+      if (ABORT) {
         err('user callback triggered after runtime exited or application aborted.  Ignoring.');
         return;
       }
@@ -5307,8 +5285,6 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
       assert(runtimeKeepaliveCounter > 0);
       runtimeKeepaliveCounter -= 1;
     };
-  
-  
   
   
   var Asyncify = {
@@ -5406,7 +5382,7 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
           // the dbg() function itself can call back into WebAssembly to get the
           // current pthread_self() pointer).
           Asyncify.state = Asyncify.State.Normal;
-          runtimeKeepalivePush();
+          
           // Keep the runtime alive so that a re-wind can be done later.
           runAndAbortIfError(_asyncify_stop_unwind);
           if (typeof Fibers != 'undefined') {
@@ -5454,7 +5430,7 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
         var start = Asyncify.getDataRewindFunc(ptr);
         // Once we have rewound and the stack we no longer need to artificially
         // keep the runtime alive.
-        runtimeKeepalivePop();
+        
         return start();
       },
   handleSleep(startAsync) {
@@ -5792,7 +5768,6 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
       HEAPU32[((penviron_buf_size)>>2)] = bufSize;
       return 0;
     };
-
 
   function _fd_close(fd) {
   try {
@@ -6206,6 +6181,100 @@ function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => {
     };
 
 
+  var getCFunc = (ident) => {
+      var func = Module['_' + ident]; // closure exported function
+      assert(func, 'Cannot call unknown function ' + ident + ', make sure it is exported');
+      return func;
+    };
+  
+  
+  
+  
+  
+  
+    /**
+     * @param {string|null=} returnType
+     * @param {Array=} argTypes
+     * @param {Arguments|Array=} args
+     * @param {Object=} opts
+     */
+  var ccall = (ident, returnType, argTypes, args, opts) => {
+      // For fast lookup of conversion functions
+      var toC = {
+        'string': (str) => {
+          var ret = 0;
+          if (str !== null && str !== undefined && str !== 0) { // null string
+            // at most 4 bytes per UTF-8 code point, +1 for the trailing '\0'
+            ret = stringToUTF8OnStack(str);
+          }
+          return ret;
+        },
+        'array': (arr) => {
+          var ret = stackAlloc(arr.length);
+          writeArrayToMemory(arr, ret);
+          return ret;
+        }
+      };
+  
+      function convertReturnValue(ret) {
+        if (returnType === 'string') {
+          
+          return UTF8ToString(ret);
+        }
+        if (returnType === 'boolean') return Boolean(ret);
+        return ret;
+      }
+  
+      var func = getCFunc(ident);
+      var cArgs = [];
+      var stack = 0;
+      assert(returnType !== 'array', 'Return type should not be "array".');
+      if (args) {
+        for (var i = 0; i < args.length; i++) {
+          var converter = toC[argTypes[i]];
+          if (converter) {
+            if (stack === 0) stack = stackSave();
+            cArgs[i] = converter(args[i]);
+          } else {
+            cArgs[i] = args[i];
+          }
+        }
+      }
+      // Data for a previous async operation that was in flight before us.
+      var previousAsync = Asyncify.currData;
+      var ret = func.apply(null, cArgs);
+      function onDone(ret) {
+        runtimeKeepalivePop();
+        if (stack !== 0) stackRestore(stack);
+        return convertReturnValue(ret);
+      }
+    var asyncMode = opts?.async;
+  
+      // Keep the runtime alive through all calls. Note that this call might not be
+      // async, but for simplicity we push and pop in all calls.
+      runtimeKeepalivePush();
+      if (Asyncify.currData != previousAsync) {
+        // A change in async operation happened. If there was already an async
+        // operation in flight before us, that is an error: we should not start
+        // another async operation while one is active, and we should not stop one
+        // either. The only valid combination is to have no change in the async
+        // data (so we either had one in flight and left it alone, or we didn't have
+        // one), or to have nothing in flight and to start one.
+        assert(!(previousAsync && Asyncify.currData), 'We cannot start an async operation when one is already flight');
+        assert(!(previousAsync && !Asyncify.currData), 'We cannot stop an async operation in flight');
+        // This is a new async operation. The wasm is paused and has unwound its stack.
+        // We need to return a Promise that resolves the return value
+        // once the stack is rewound and execution finishes.
+        assert(asyncMode, 'The call to ' + ident + ' is running asynchronously. If this was intended, add the async option to the ccall/cwrap call.');
+        return Asyncify.whenDone().then(onDone);
+      }
+  
+      ret = onDone(ret);
+      // If this is an async ccall, ensure we return a promise
+      if (asyncMode) return Promise.resolve(ret);
+      return ret;
+    };
+
   var FSNode = /** @constructor */ function(parent, name, mode, rdev) {
     if (!parent) {
       parent = this;  // root node sets parent to itself
@@ -6331,8 +6400,6 @@ var wasmImports = {
   /** @export */
   environ_sizes_get: _environ_sizes_get,
   /** @export */
-  exit: _exit,
-  /** @export */
   fd_close: _fd_close,
   /** @export */
   fd_read: _fd_read,
@@ -6350,7 +6417,6 @@ var _malloc = createExportWrapper('malloc');
 var ___errno_location = createExportWrapper('__errno_location');
 var _main = Module['_main'] = createExportWrapper('__main_argc_argv');
 var ___getTypeName = createExportWrapper('__getTypeName');
-var ___funcs_on_exit = createExportWrapper('__funcs_on_exit');
 var _fflush = Module['_fflush'] = createExportWrapper('fflush');
 var _free = createExportWrapper('free');
 var _emscripten_stack_init = () => (_emscripten_stack_init = wasmExports['emscripten_stack_init'])();
@@ -6389,12 +6455,12 @@ var _asyncify_stop_unwind = createExportWrapper('asyncify_stop_unwind');
 var _asyncify_start_rewind = createExportWrapper('asyncify_start_rewind');
 var _asyncify_stop_rewind = createExportWrapper('asyncify_stop_rewind');
 var ___start_em_js = Module['___start_em_js'] = 98804;
-var ___stop_em_js = Module['___stop_em_js'] = 99259;
+var ___stop_em_js = Module['___stop_em_js'] = 99275;
 
 // include: postamble.js
 // === Auto-generated postamble setup entry stuff ===
 
-Module['addOnExit'] = addOnExit;
+Module['ccall'] = ccall;
 var missingLibrarySymbols = [
   'writeI53ToI64',
   'writeI53ToI64Clamped',
@@ -6431,8 +6497,6 @@ var missingLibrarySymbols = [
   'STACK_ALIGN',
   'POINTER_SIZE',
   'ASSERTIONS',
-  'getCFunc',
-  'ccall',
   'cwrap',
   'uleb128Encode',
   'generateFuncType',
@@ -6594,6 +6658,7 @@ var unexportedSymbols = [
   'addOnPreRun',
   'addOnInit',
   'addOnPreMain',
+  'addOnExit',
   'addOnPostRun',
   'addRunDependency',
   'removeRunDependency',
@@ -6656,6 +6721,7 @@ var unexportedSymbols = [
   'HandleAllocator',
   'wasmTable',
   'noExitRuntime',
+  'getCFunc',
   'sigToWasmTypes',
   'freeTableIndexes',
   'functionsInTableMap',
@@ -6877,6 +6943,45 @@ function run(args = arguments_) {
   checkStackCookie();
 }
 
+function checkUnflushedContent() {
+  // Compiler settings do not allow exiting the runtime, so flushing
+  // the streams is not possible. but in ASSERTIONS mode we check
+  // if there was something to flush, and if so tell the user they
+  // should request that the runtime be exitable.
+  // Normally we would not even include flush() at all, but in ASSERTIONS
+  // builds we do so just for this check, and here we see if there is any
+  // content to flush, that is, we check if there would have been
+  // something a non-ASSERTIONS build would have not seen.
+  // How we flush the streams depends on whether we are in SYSCALLS_REQUIRE_FILESYSTEM=0
+  // mode (which has its own special function for this; otherwise, all
+  // the code is inside libc)
+  var oldOut = out;
+  var oldErr = err;
+  var has = false;
+  out = err = (x) => {
+    has = true;
+  }
+  try { // it doesn't matter if it fails
+    _fflush(0);
+    // also flush in the JS FS layer
+    ['stdout', 'stderr'].forEach(function(name) {
+      var info = FS.analyzePath('/dev/' + name);
+      if (!info) return;
+      var stream = info.object;
+      var rdev = stream.rdev;
+      var tty = TTY.ttys[rdev];
+      if (tty?.output?.length) {
+        has = true;
+      }
+    });
+  } catch(e) {}
+  out = oldOut;
+  err = oldErr;
+  if (has) {
+    warnOnce('stdio streams had content in them that was not flushed. you should set EXIT_RUNTIME to 1 (see the Emscripten FAQ), or make sure to emit a newline when you printf etc.');
+  }
+}
+
 if (Module['preInit']) {
   if (typeof Module['preInit'] == 'function') Module['preInit'] = [Module['preInit']];
   while (Module['preInit'].length > 0) {
@@ -6900,4 +7005,4 @@ run();
 );
 })();
 ;
-export default create_dungeoncrawler_module;
+export default Module;

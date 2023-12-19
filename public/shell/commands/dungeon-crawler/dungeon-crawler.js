@@ -6,6 +6,7 @@ shell.registerCommand("dungeon-crawler", () => {
             const { default: create_dungeoncrawler_module } = await import("./textbased_dungeoncrawler.js");
 
             const Module = await create_dungeoncrawler_module({
+                noInitialRun: true,
                 preRun: () => {
                     shell.clear();
                 },
@@ -14,9 +15,8 @@ shell.registerCommand("dungeon-crawler", () => {
                 },
             });
 
-            Module.addOnExit(() => {
-                resolve();
-            });
+            await Module.ccall("main", "number", [], [], { async: true });
+            resolve();
         } catch (err) {
             reject(err);
         }
