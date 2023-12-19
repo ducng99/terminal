@@ -1,6 +1,6 @@
 
 var create_dungeoncrawler_module = (() => {
-  var _scriptDir = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined;
+  var _scriptDir = import.meta.url;
   
   return (
 function(moduleArg = {}) {
@@ -27,7 +27,7 @@ Module['ready'] = new Promise((resolve, reject) => {
   readyPromiseResolve = resolve;
   readyPromiseReject = reject;
 });
-["_main","_memory","___indirect_function_table","_fflush","onRuntimeInitialized"].forEach((prop) => {
+["_main","_memory","___indirect_function_table","___asyncjs__initFileStorage","___asyncjs__asyncSaveFiles","_fflush","___start_em_js","___stop_em_js","onRuntimeInitialized"].forEach((prop) => {
   if (!Object.getOwnPropertyDescriptor(Module['ready'], prop)) {
     Object.defineProperty(Module['ready'], prop, {
       get: () => abort('You are getting ' + prop + ' on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js'),
@@ -257,7 +257,7 @@ legacyModuleProp('read', 'read_');
 legacyModuleProp('readAsync', 'readAsync');
 legacyModuleProp('readBinary', 'readBinary');
 legacyModuleProp('setWindowTitle', 'setWindowTitle');
-var IDBFS = 'IDBFS is no longer included by default; build with -lidbfs.js';
+
 var PROXYFS = 'PROXYFS is no longer included by default; build with -lproxyfs.js';
 var WORKERFS = 'WORKERFS is no longer included by default; build with -lworkerfs.js';
 var FETCHFS = 'FETCHFS is no longer included by default; build with -lfetchfs.js';
@@ -463,6 +463,7 @@ function exitRuntime() {
   callRuntimeCallbacks(__ATEXIT__);
   FS.quit();
 TTY.shutdown();
+IDBFS.quit();
   runtimeExited = true;
 }
 
@@ -661,10 +662,15 @@ function createExportWrapper(name) {
 // include: runtime_exceptions.js
 // end include: runtime_exceptions.js
 var wasmBinaryFile;
+if (Module['locateFile']) {
   wasmBinaryFile = 'textbased_dungeoncrawler.wasm';
   if (!isDataURI(wasmBinaryFile)) {
     wasmBinaryFile = locateFile(wasmBinaryFile);
   }
+} else {
+  // Use bundler-friendly `new URL(..., import.meta.url)` pattern; works in browsers too.
+  wasmBinaryFile = new URL('textbased_dungeoncrawler.wasm', import.meta.url).href;
+}
 
 function getBinarySync(file) {
   if (file == wasmBinaryFile && wasmBinary) {
@@ -919,6 +925,10 @@ function dbg(text) {
 }
 // end include: runtime_debug.js
 // === Body ===
+
+function __asyncjs__initFileStorage(saveDir) { return Asyncify.handleAsync(async () => { await new Promise((resolve, reject) => { const dir = UTF8ToString(saveDir); FS.mkdir(dir); FS.mount(IDBFS, {}, dir); FS.syncfs(true, function(err) { if (err) { reject(err); } else { resolve(); } }); }); }); }
+function __asyncjs__asyncSaveFiles() { return Asyncify.handleAsync(async () => { await new Promise((resolve, reject) => { FS.syncfs(function(err) { if (err) { reject(err); } else { resolve(); } }); }); }); }
+
 
 // end include: preamble.js
 
@@ -1974,6 +1984,309 @@ function dbg(text) {
   
   
   
+  
+  
+  
+  var IDBFS = {
+  dbs:{
+  },
+  indexedDB:() => {
+        if (typeof indexedDB != 'undefined') return indexedDB;
+        var ret = null;
+        if (typeof window == 'object') ret = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+        assert(ret, 'IDBFS used, but indexedDB not supported');
+        return ret;
+      },
+  DB_VERSION:21,
+  DB_STORE_NAME:"FILE_DATA",
+  mount:function(mount) {
+        // reuse all of the core MEMFS functionality
+        return MEMFS.mount.apply(null, arguments);
+      },
+  syncfs:(mount, populate, callback) => {
+        IDBFS.getLocalSet(mount, (err, local) => {
+          if (err) return callback(err);
+  
+          IDBFS.getRemoteSet(mount, (err, remote) => {
+            if (err) return callback(err);
+  
+            var src = populate ? remote : local;
+            var dst = populate ? local : remote;
+  
+            IDBFS.reconcile(src, dst, callback);
+          });
+        });
+      },
+  quit:() => {
+        Object.values(IDBFS.dbs).forEach((value) => value.close());
+        IDBFS.dbs = {};
+      },
+  getDB:(name, callback) => {
+        // check the cache first
+        var db = IDBFS.dbs[name];
+        if (db) {
+          return callback(null, db);
+        }
+  
+        var req;
+        try {
+          req = IDBFS.indexedDB().open(name, IDBFS.DB_VERSION);
+        } catch (e) {
+          return callback(e);
+        }
+        if (!req) {
+          return callback("Unable to connect to IndexedDB");
+        }
+        req.onupgradeneeded = (e) => {
+          var db = /** @type {IDBDatabase} */ (e.target.result);
+          var transaction = e.target.transaction;
+  
+          var fileStore;
+  
+          if (db.objectStoreNames.contains(IDBFS.DB_STORE_NAME)) {
+            fileStore = transaction.objectStore(IDBFS.DB_STORE_NAME);
+          } else {
+            fileStore = db.createObjectStore(IDBFS.DB_STORE_NAME);
+          }
+  
+          if (!fileStore.indexNames.contains('timestamp')) {
+            fileStore.createIndex('timestamp', 'timestamp', { unique: false });
+          }
+        };
+        req.onsuccess = () => {
+          db = /** @type {IDBDatabase} */ (req.result);
+  
+          // add to the cache
+          IDBFS.dbs[name] = db;
+          callback(null, db);
+        };
+        req.onerror = (e) => {
+          callback(e.target.error);
+          e.preventDefault();
+        };
+      },
+  getLocalSet:(mount, callback) => {
+        var entries = {};
+  
+        function isRealDir(p) {
+          return p !== '.' && p !== '..';
+        };
+        function toAbsolute(root) {
+          return (p) => PATH.join2(root, p);
+        };
+  
+        var check = FS.readdir(mount.mountpoint).filter(isRealDir).map(toAbsolute(mount.mountpoint));
+  
+        while (check.length) {
+          var path = check.pop();
+          var stat;
+  
+          try {
+            stat = FS.stat(path);
+          } catch (e) {
+            return callback(e);
+          }
+  
+          if (FS.isDir(stat.mode)) {
+            check.push.apply(check, FS.readdir(path).filter(isRealDir).map(toAbsolute(path)));
+          }
+  
+          entries[path] = { 'timestamp': stat.mtime };
+        }
+  
+        return callback(null, { type: 'local', entries: entries });
+      },
+  getRemoteSet:(mount, callback) => {
+        var entries = {};
+  
+        IDBFS.getDB(mount.mountpoint, (err, db) => {
+          if (err) return callback(err);
+  
+          try {
+            var transaction = db.transaction([IDBFS.DB_STORE_NAME], 'readonly');
+            transaction.onerror = (e) => {
+              callback(e.target.error);
+              e.preventDefault();
+            };
+  
+            var store = transaction.objectStore(IDBFS.DB_STORE_NAME);
+            var index = store.index('timestamp');
+  
+            index.openKeyCursor().onsuccess = (event) => {
+              var cursor = event.target.result;
+  
+              if (!cursor) {
+                return callback(null, { type: 'remote', db, entries });
+              }
+  
+              entries[cursor.primaryKey] = { 'timestamp': cursor.key };
+  
+              cursor.continue();
+            };
+          } catch (e) {
+            return callback(e);
+          }
+        });
+      },
+  loadLocalEntry:(path, callback) => {
+        var stat, node;
+  
+        try {
+          var lookup = FS.lookupPath(path);
+          node = lookup.node;
+          stat = FS.stat(path);
+        } catch (e) {
+          return callback(e);
+        }
+  
+        if (FS.isDir(stat.mode)) {
+          return callback(null, { 'timestamp': stat.mtime, 'mode': stat.mode });
+        } else if (FS.isFile(stat.mode)) {
+          // Performance consideration: storing a normal JavaScript array to a IndexedDB is much slower than storing a typed array.
+          // Therefore always convert the file contents to a typed array first before writing the data to IndexedDB.
+          node.contents = MEMFS.getFileDataAsTypedArray(node);
+          return callback(null, { 'timestamp': stat.mtime, 'mode': stat.mode, 'contents': node.contents });
+        } else {
+          return callback(new Error('node type not supported'));
+        }
+      },
+  storeLocalEntry:(path, entry, callback) => {
+        try {
+          if (FS.isDir(entry['mode'])) {
+            FS.mkdirTree(path, entry['mode']);
+          } else if (FS.isFile(entry['mode'])) {
+            FS.writeFile(path, entry['contents'], { canOwn: true });
+          } else {
+            return callback(new Error('node type not supported'));
+          }
+  
+          FS.chmod(path, entry['mode']);
+          FS.utime(path, entry['timestamp'], entry['timestamp']);
+        } catch (e) {
+          return callback(e);
+        }
+  
+        callback(null);
+      },
+  removeLocalEntry:(path, callback) => {
+        try {
+          var stat = FS.stat(path);
+  
+          if (FS.isDir(stat.mode)) {
+            FS.rmdir(path);
+          } else if (FS.isFile(stat.mode)) {
+            FS.unlink(path);
+          }
+        } catch (e) {
+          return callback(e);
+        }
+  
+        callback(null);
+      },
+  loadRemoteEntry:(store, path, callback) => {
+        var req = store.get(path);
+        req.onsuccess = (event) => callback(null, event.target.result);
+        req.onerror = (e) => {
+          callback(e.target.error);
+          e.preventDefault();
+        };
+      },
+  storeRemoteEntry:(store, path, entry, callback) => {
+        try {
+          var req = store.put(entry, path);
+        } catch (e) {
+          callback(e);
+          return;
+        }
+        req.onsuccess = (event) => callback();
+        req.onerror = (e) => {
+          callback(e.target.error);
+          e.preventDefault();
+        };
+      },
+  removeRemoteEntry:(store, path, callback) => {
+        var req = store.delete(path);
+        req.onsuccess = (event) => callback();
+        req.onerror = (e) => {
+          callback(e.target.error);
+          e.preventDefault();
+        };
+      },
+  reconcile:(src, dst, callback) => {
+        var total = 0;
+  
+        var create = [];
+        Object.keys(src.entries).forEach(function (key) {
+          var e = src.entries[key];
+          var e2 = dst.entries[key];
+          if (!e2 || e['timestamp'].getTime() != e2['timestamp'].getTime()) {
+            create.push(key);
+            total++;
+          }
+        });
+  
+        var remove = [];
+        Object.keys(dst.entries).forEach(function (key) {
+          if (!src.entries[key]) {
+            remove.push(key);
+            total++;
+          }
+        });
+  
+        if (!total) {
+          return callback(null);
+        }
+  
+        var errored = false;
+        var db = src.type === 'remote' ? src.db : dst.db;
+        var transaction = db.transaction([IDBFS.DB_STORE_NAME], 'readwrite');
+        var store = transaction.objectStore(IDBFS.DB_STORE_NAME);
+  
+        function done(err) {
+          if (err && !errored) {
+            errored = true;
+            return callback(err);
+          }
+        };
+  
+        transaction.onerror = (e) => {
+          done(this.error);
+          e.preventDefault();
+        };
+  
+        transaction.oncomplete = (e) => {
+          if (!errored) {
+            callback(null);
+          }
+        };
+  
+        // sort paths in ascending order so directory entries are created
+        // before the files inside them
+        create.sort().forEach((path) => {
+          if (dst.type === 'local') {
+            IDBFS.loadRemoteEntry(store, path, (err, entry) => {
+              if (err) return done(err);
+              IDBFS.storeLocalEntry(path, entry, done);
+            });
+          } else {
+            IDBFS.loadLocalEntry(path, (err, entry) => {
+              if (err) return done(err);
+              IDBFS.storeRemoteEntry(store, path, entry, done);
+            });
+          }
+        });
+  
+        // sort paths in descending order so files are deleted before their
+        // parent directories
+        remove.sort().reverse().forEach((path) => {
+          if (dst.type === 'local') {
+            IDBFS.removeLocalEntry(path, done);
+          } else {
+            IDBFS.removeRemoteEntry(store, path, done);
+          }
+        });
+      },
+  };
   
   var ERRNO_MESSAGES = {
   0:"Success",
@@ -3453,6 +3766,7 @@ function dbg(text) {
   
         FS.filesystems = {
           'MEMFS': MEMFS,
+          'IDBFS': IDBFS,
         };
       },
   init(input, output, error) {
@@ -3956,6 +4270,38 @@ function dbg(text) {
   }
   }
 
+  function ___syscall_fstat64(fd, buf) {
+  try {
+  
+      var stream = SYSCALLS.getStreamFromFD(fd);
+      return SYSCALLS.doStat(FS.stat, stream.path, buf);
+    } catch (e) {
+    if (typeof FS == 'undefined' || !(e.name === 'ErrnoError')) throw e;
+    return -e.errno;
+  }
+  }
+
+  
+  var stringToUTF8 = (str, outPtr, maxBytesToWrite) => {
+      assert(typeof maxBytesToWrite == 'number', 'stringToUTF8(str, outPtr, maxBytesToWrite) is missing the third parameter that specifies the length of the output buffer!');
+      return stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
+    };
+  
+  function ___syscall_getcwd(buf, size) {
+  try {
+  
+      if (size === 0) return -28;
+      var cwd = FS.cwd();
+      var cwdLengthInBytes = lengthBytesUTF8(cwd) + 1;
+      if (size < cwdLengthInBytes) return -68;
+      stringToUTF8(cwd, buf, size);
+      return cwdLengthInBytes;
+    } catch (e) {
+    if (typeof FS == 'undefined' || !(e.name === 'ErrnoError')) throw e;
+    return -e.errno;
+  }
+  }
+
   function ___syscall_ioctl(fd, op, varargs) {
   SYSCALLS.varargs = varargs;
   try {
@@ -4051,6 +4397,50 @@ function dbg(text) {
   }
   }
 
+  function ___syscall_lstat64(path, buf) {
+  try {
+  
+      path = SYSCALLS.getStr(path);
+      return SYSCALLS.doStat(FS.lstat, path, buf);
+    } catch (e) {
+    if (typeof FS == 'undefined' || !(e.name === 'ErrnoError')) throw e;
+    return -e.errno;
+  }
+  }
+
+  function ___syscall_mkdirat(dirfd, path, mode) {
+  try {
+  
+      path = SYSCALLS.getStr(path);
+      path = SYSCALLS.calculateAt(dirfd, path);
+      // remove a trailing slash, if one - /a/b/ has basename of '', but
+      // we want to create b in the context of this function
+      path = PATH.normalize(path);
+      if (path[path.length-1] === '/') path = path.substr(0, path.length-1);
+      FS.mkdir(path, mode, 0);
+      return 0;
+    } catch (e) {
+    if (typeof FS == 'undefined' || !(e.name === 'ErrnoError')) throw e;
+    return -e.errno;
+  }
+  }
+
+  function ___syscall_newfstatat(dirfd, path, buf, flags) {
+  try {
+  
+      path = SYSCALLS.getStr(path);
+      var nofollow = flags & 256;
+      var allowEmpty = flags & 4096;
+      flags = flags & (~6400);
+      assert(!flags, `unknown flags in __syscall_newfstatat: ${flags}`);
+      path = SYSCALLS.calculateAt(dirfd, path, allowEmpty);
+      return SYSCALLS.doStat(nofollow ? FS.lstat : FS.stat, path, buf);
+    } catch (e) {
+    if (typeof FS == 'undefined' || !(e.name === 'ErrnoError')) throw e;
+    return -e.errno;
+  }
+  }
+
   function ___syscall_openat(dirfd, path, flags, varargs) {
   SYSCALLS.varargs = varargs;
   try {
@@ -4059,6 +4449,17 @@ function dbg(text) {
       path = SYSCALLS.calculateAt(dirfd, path);
       var mode = varargs ? SYSCALLS.get() : 0;
       return FS.open(path, flags, mode).fd;
+    } catch (e) {
+    if (typeof FS == 'undefined' || !(e.name === 'ErrnoError')) throw e;
+    return -e.errno;
+  }
+  }
+
+  function ___syscall_stat64(path, buf) {
+  try {
+  
+      path = SYSCALLS.getStr(path);
+      return SYSCALLS.doStat(FS.stat, path, buf);
     } catch (e) {
     if (typeof FS == 'undefined' || !(e.name === 'ErrnoError')) throw e;
     return -e.errno;
@@ -4451,10 +4852,6 @@ function dbg(text) {
     }
   
   
-  var stringToUTF8 = (str, outPtr, maxBytesToWrite) => {
-      assert(typeof maxBytesToWrite == 'number', 'stringToUTF8(str, outPtr, maxBytesToWrite) is missing the third parameter that specifies the length of the output buffer!');
-      return stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
-    };
   
   
   
@@ -5798,15 +6195,6 @@ function dbg(text) {
       return _strftime(s, maxsize, format, tm); // no locale support yet
     };
 
-  var _system = (command) => {
-      // int system(const char *command);
-      // http://pubs.opengroup.org/onlinepubs/000095399/functions/system.html
-      // Can't call external programs.
-      if (!command) return 0; // no shell available
-      setErrNo(52);
-      return -1;
-    };
-
 
 
   
@@ -5877,13 +6265,29 @@ var wasmImports = {
   /** @export */
   __assert_fail: ___assert_fail,
   /** @export */
+  __asyncjs__asyncSaveFiles: __asyncjs__asyncSaveFiles,
+  /** @export */
+  __asyncjs__initFileStorage: __asyncjs__initFileStorage,
+  /** @export */
   __cxa_throw: ___cxa_throw,
   /** @export */
   __syscall_fcntl64: ___syscall_fcntl64,
   /** @export */
+  __syscall_fstat64: ___syscall_fstat64,
+  /** @export */
+  __syscall_getcwd: ___syscall_getcwd,
+  /** @export */
   __syscall_ioctl: ___syscall_ioctl,
   /** @export */
+  __syscall_lstat64: ___syscall_lstat64,
+  /** @export */
+  __syscall_mkdirat: ___syscall_mkdirat,
+  /** @export */
+  __syscall_newfstatat: ___syscall_newfstatat,
+  /** @export */
   __syscall_openat: ___syscall_openat,
+  /** @export */
+  __syscall_stat64: ___syscall_stat64,
   /** @export */
   _embind_register_bigint: __embind_register_bigint,
   /** @export */
@@ -5937,9 +6341,7 @@ var wasmImports = {
   /** @export */
   fd_write: _fd_write,
   /** @export */
-  strftime_l: _strftime_l,
-  /** @export */
-  system: _system
+  strftime_l: _strftime_l
 };
 Asyncify.instrumentWasmImports(wasmImports);
 var wasmExports = createWasm();
@@ -5986,7 +6388,8 @@ var _asyncify_start_unwind = createExportWrapper('asyncify_start_unwind');
 var _asyncify_stop_unwind = createExportWrapper('asyncify_stop_unwind');
 var _asyncify_start_rewind = createExportWrapper('asyncify_start_rewind');
 var _asyncify_stop_rewind = createExportWrapper('asyncify_stop_rewind');
-
+var ___start_em_js = Module['___start_em_js'] = 98804;
+var ___stop_em_js = Module['___stop_em_js'] = 99259;
 
 // include: postamble.js
 // === Auto-generated postamble setup entry stuff ===
@@ -6370,6 +6773,7 @@ var unexportedSymbols = [
   'emval_methodCallers',
   'emval_addMethodCaller',
   'reflectConstruct',
+  'IDBFS',
 ];
 unexportedSymbols.forEach(unexportedRuntimeSymbol);
 
@@ -6496,7 +6900,4 @@ run();
 );
 })();
 ;
-if (typeof exports === 'object' && typeof module === 'object')
-  module.exports = create_dungeoncrawler_module;
-else if (typeof define === 'function' && define['amd'])
-  define([], () => create_dungeoncrawler_module);
+export default create_dungeoncrawler_module;

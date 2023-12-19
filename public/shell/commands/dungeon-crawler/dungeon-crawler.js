@@ -3,7 +3,7 @@ shell.registerCommand("dungeon-crawler", () => {
         await shell.print("Loading...\n");
 
         try {
-            await shell.loadScript("shell/commands/dungeon-crawler/textbased_dungeoncrawler.js", false);
+            const { default: create_dungeoncrawler_module } = await import("./textbased_dungeoncrawler.js");
 
             const Module = await create_dungeoncrawler_module({
                 preRun: () => {
