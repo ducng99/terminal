@@ -169,6 +169,7 @@ export const setupScreen = (screen) => {
 
                 screen.appendChild(inputElem);
                 inputElem.focus();
+                window.scrollTo(0, screen.scrollHeight);
             });
         },
 
