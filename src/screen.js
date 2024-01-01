@@ -4,7 +4,7 @@ import { sleep } from "./utils";
  * @typedef {Object} PrintOptions
  * @property {number} preDelay Delay before printing. Defaults to 0.
  * @property {number} postDelay Delay after printing. Defaults to 0.
- * @property {number} printDelay Delay between each character. Defaults to 30.
+ * @property {number} printDelay Delay between each character. Defaults to 8.
  * @property {boolean} printBeforeActivePrompt Whether to print before the active prompt. Defaults to `true`.
  */
 
@@ -113,13 +113,22 @@ export const setupScreen = (screen) => {
                         _options.onKeyDown(event);
                     }
 
-                    if (event.key === 'Enter') {
-                        if (!_options.multiLine) {
-                            event.preventDefault();
+                    switch (event.key) {
+                        case 'Enter':
+                            if (!_options.multiLine) {
+                                event.preventDefault();
 
-                            inputElem.appendChild(document.createTextNode('\n'));
-                            inputElem.dispatchEvent(new Event('finish'));
-                        }
+                                inputElem.appendChild(document.createTextNode('\n'));
+                                inputElem.dispatchEvent(new Event('finish'));
+                            }
+                            break;
+                        case 'c':
+                            if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+                                inputElem.dispatchEvent(new PromptCancelEvent());
+                            }
+                            break;
+                        default:
+                            break;
                     }
 
                     // Scroll to bottom of screen
@@ -202,6 +211,8 @@ export const setupScreen = (screen) => {
                 selection.addRange(range);
             }
         },
+
+        sleep: sleep,
     };
 
     // Focus on active input prompt if present

@@ -1,5 +1,4 @@
 import { loadScript } from "./utils";
-import { PromptCancelEvent } from "./screen";
 import { CommandHistory } from "./shell-history";
 
 /**
@@ -57,7 +56,7 @@ async function bootSequence() {
     await shell.print("BOOT COMPLETED!", { postDelay: 1000 });
     await shell.clear();
 
-    await shell.print("Welcome to Old NET.", { preDelay: 700, postDelay: 500 });
+    await shell.print("Welcome to Old NET.", { postDelay: 500 });
     await shell.print("\nType 'help' to get started.");
     await shell.print("\n\n", { printDelay: 0 });
 }
@@ -88,11 +87,6 @@ async function beginShell() {
  */
 function shellPromptKeyDownHandler(event) {
     switch (event.key) {
-        case 'c':
-            if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
-                event.currentTarget.dispatchEvent(new PromptCancelEvent());
-            }
-            break;
         case 'l':
             if (event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
                 event.preventDefault();
