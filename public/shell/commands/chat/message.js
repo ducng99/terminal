@@ -37,7 +37,7 @@ export function handleServerMessage(message) {
             break;
         case 'switchedChannel':
             if (allowPrintServerMessages) {
-                shell.print(`[${formatTimestamp(message.timestamp)}] Switched to channel #${message.channel}\n`);
+                shell.print(`Joined channel #${message.channel}\n`);
             }
             break;
         case 'userMessage':

@@ -22,7 +22,7 @@ export function handleInput(input) {
             break;
         case '#':
             const channel = input.substring(1);
-            break;
+            return handleSwitchChannel(channel);
         default:
             return handleSendMessage(input);
     }
@@ -44,10 +44,24 @@ function handleCommand(command) {
     }
 }
 
+/**
+ * Handles sending message
+ */
 function handleSendMessage(message) {
     const packet = JSON.stringify({
         type: 'sendMessage',
         data: message,
+    });
+
+    chat_conn.connection.send(packet);
+
+    return { code: CODE_SUCCESS };
+}
+
+function handleSwitchChannel(channel) {
+    const packet = JSON.stringify({
+        type: 'switchChannel',
+        data: channel,
     });
 
     chat_conn.connection.send(packet);
