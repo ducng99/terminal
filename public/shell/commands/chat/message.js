@@ -1,7 +1,5 @@
 import { allowPrintServerMessages } from "./connection.js";
 
-shell.loadScript('https://momentjs.com/downloads/moment.min.js', false);
-
 // Server messages
 /**
  * Server message
@@ -53,9 +51,17 @@ export function handleServerMessage(message) {
 }
 
 /**
- * Formats to Jan-01 12:00
+ * Formats UNIX timestamp to 01-Jan 23:01
  * @param {number} timestamp Unix timestamp with miliseconds
  */
 function formatTimestamp(timestamp) {
-    return moment(timestamp).format("DD-MMM HH:mm");
+    const date = new Date(timestamp);
+
+    return new Intl.DateTimeFormat('en-NZ', {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    }).format(date);
 }
