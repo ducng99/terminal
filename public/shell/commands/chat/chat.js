@@ -1,4 +1,4 @@
-import { CODE_EXIT } from "./constants.js";
+import { CODE_ERROR, CODE_EXIT } from "./constants.js";
 import { handleInput } from "./inputHandler.js";
 import * as chat_connection from "./connection.js";
 
@@ -52,6 +52,11 @@ Type '/exit' to exit this program.
             switch (handleResult.code) {
                 case CODE_EXIT:
                     should_exit = true;
+                    break;
+                case CODE_ERROR:
+                    if (handleResult.message) {
+                        await shell.print(handleResult.message + "\n");
+                    }
                     break;
                 default:
                     break;
