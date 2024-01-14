@@ -9,6 +9,7 @@ import { CODE_EXIT, CODE_SUCCESS, CODE_ERROR } from "./constants.js";
 
 /**
  * Handles user input.
+ * @param {string} input 
  * @returns {InputHandlerResult}
  */
 export function handleInput(input) {
@@ -16,14 +17,22 @@ export function handleInput(input) {
 
     switch (firstChar) {
         case '/':
-            const command = input.substring(1);
-            return handleCommand(command);
+            {
+                const command = input.substring(1).split(' ')[0];
+                const params = input.substring(1 + command.length + 1);
+                return handleCommand(command, params);
+            }
         case '@':
-            const target = input.substring(1);
-            break;
+            {
+                const username = input.substring(1).split(' ')[0];
+                const message = input.substring(1 + username.length + 1);
+            }
         case '#':
-            const channel = input.substring(1);
-            return handleSwitchChannel(channel);
+            {
+                const channel = input.substring(1).split(' ')[0];
+                const message = input.substring(1 + channel.length + 1);
+                return handleSwitchChannel(channel, message);
+            }
         default:
             return handleSendMessage(input);
     }
@@ -31,9 +40,11 @@ export function handleInput(input) {
 
 /**
  * Handles command
+ * @param {string} command
+ * @param {string} params
  * @returns {InputHandlerResult}
  */
-function handleCommand(command) {
+function handleCommand(command, params) {
     switch (command) {
         case 'help':
             return { code: CODE_SUCCESS };
@@ -50,6 +61,7 @@ function handleCommand(command) {
 
 /**
  * Handles sending message
+ * @param {string} message 
  * @returns {InputHandlerResult}
  */
 function handleSendMessage(message) {
@@ -65,6 +77,7 @@ function handleSendMessage(message) {
 
 /**
  * Handles switching channel
+ * @param {string} channel 
  * @returns {InputHandlerResult}
  */
 function handleSwitchChannel(channel) {

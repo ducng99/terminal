@@ -37,12 +37,12 @@ export function handleServerMessage(message) {
             break;
         case 'switchedChannel':
             if (allowPrintServerMessages) {
-                shell.print(`Joined channel #${message.channel}\n`);
+                shell.print(`[${formatTimestamp(message.timestamp)}] Joined channel #${message.channel}\n`);
             }
             break;
         case 'userMessage':
             if (allowPrintServerMessages) {
-                shell.print(`[${formatTimestamp(message.timestamp)}] <${message.sender}>: ${message.message}\n`);
+                shell.print(`[${formatTimestamp(message.timestamp)}] <${message.sender}> ${message.message}\n`);
             }
             break;
         default:
@@ -51,15 +51,13 @@ export function handleServerMessage(message) {
 }
 
 /**
- * Formats UNIX timestamp to 01-Jan 23:01
+ * Formats UNIX timestamp to 23:01
  * @param {number} timestamp Unix timestamp with miliseconds
  */
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
 
     return new Intl.DateTimeFormat('en-NZ', {
-        month: 'short',
-        day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
         hourCycle: 'h23',
