@@ -1,4 +1,5 @@
 import { allowPrintServerMessages } from "./connection.js";
+import { CHANNEL_TYPES } from "./constants.js";
 
 // Server messages
 /**
@@ -22,6 +23,8 @@ import { allowPrintServerMessages } from "./connection.js";
  * @property {string} timestamp
  * @property {string} sender
  * @property {string} message
+ * @property {CHANNEL_TYPES} channelType
+ * @property {string} channelName
  */
 
 /**
@@ -37,13 +40,11 @@ export function handleServerMessage(message) {
             break;
         case 'switchedChannel':
             if (allowPrintServerMessages) {
-                shell.print(`[${formatTimestamp(message.timestamp)}] Joined channel #${message.channel}\n`);
+                shell.print(`[${formatTimestamp(message.timestamp)}] Joined channel ${message.channel}\n`);
             }
             break;
         case 'userMessage':
-            if (allowPrintServerMessages) {
-                shell.print(`[${formatTimestamp(message.timestamp)}] <${message.sender}> ${message.message}\n`);
-            }
+            onNewUserMessage(message);
             break;
         default:
             break;
@@ -62,4 +63,27 @@ function formatTimestamp(timestamp) {
         minute: '2-digit',
         hourCycle: 'h23',
     }).format(date);
+}
+
+/**
+ * Handles new user message.
+ * @param {ServerMessageUserMessage} message
+ * @returns {void}
+ */
+function onNewUserMessage(serverMessage) {
+    if (allowPrintServerMessages) {
+        let printString = `[${formatTimestamp(serverMessage.timestamp)}] `;
+
+        switch (serverMessage.channelType) {
+            case CHANNEL_TYPES.DIRECT:
+                printString += `@${serverMessage.sender}: `;
+                break;
+            case CHANNEL_TYPES.MULTI:
+                printString += `${serverMessage.channelName} <${serverMessage.sender}>: `;
+                break;
+        }
+
+        printString += `${serverMessage.message}\n`;
+        shell.print(printString);
+    }
 }

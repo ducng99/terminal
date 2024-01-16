@@ -26,12 +26,13 @@ export function handleInput(input) {
             {
                 const username = input.substring(1).split(' ')[0];
                 const message = input.substring(1 + username.length + 1);
+                return handleSwitchDirectChannel(username, message);
             }
         case '#':
             {
                 const channel = input.substring(1).split(' ')[0];
                 const message = input.substring(1 + channel.length + 1);
-                return handleSwitchChannel(channel, message);
+                return handleSwitchMultiChannel(channel, message);
             }
         default:
             return handleSendMessage(input);
@@ -76,14 +77,30 @@ function handleSendMessage(message) {
 }
 
 /**
- * Handles switching channel
+ * Handles switching to a multi channel
  * @param {string} channel 
  * @returns {InputHandlerResult}
  */
-function handleSwitchChannel(channel) {
+function handleSwitchMultiChannel(channel) {
     const packet = JSON.stringify({
-        type: 'switchChannel',
+        type: 'switchMultiChannel',
         data: channel,
+    });
+
+    chat_conn.connection.send(packet);
+
+    return { code: CODE_SUCCESS };
+}
+
+/**
+ * Handles switching to a direct channel
+ * @param {string} username Target user to chat with 
+ * @returns {InputHandlerResult}
+ */
+function handleSwitchDirectChannel(username) {
+    const packet = JSON.stringify({
+        type: 'switchDirectChannel',
+        data: username,
     });
 
     chat_conn.connection.send(packet);
