@@ -14,6 +14,7 @@ import { handleCommand } from "./commands.js";
  * @returns {InputHandlerResult}
  */
 export function handleInput(input) {
+    input = input.trim();
     const firstChar = input.charAt(0);
 
     switch (firstChar) {
@@ -59,12 +60,16 @@ function handleSendMessage(message) {
 /**
  * Handles switching to a multi channel
  * @param {string} channel 
+ * @param {string|undefined} message Message to send after joining channel
  * @returns {InputHandlerResult}
  */
-function handleSwitchMultiChannel(channel) {
+function handleSwitchMultiChannel(channel, message) {
     const packet = JSON.stringify({
         type: 'switchMultiChannel',
         data: channel,
+        additionalData: {
+            message,
+        },
     });
 
     chat_conn.connection.send(packet);
@@ -75,12 +80,16 @@ function handleSwitchMultiChannel(channel) {
 /**
  * Handles switching to a direct channel
  * @param {string} username Target user to chat with 
+ * @param {string|undefined} message Message to send after joining channel
  * @returns {InputHandlerResult}
  */
-function handleSwitchDirectChannel(username) {
+function handleSwitchDirectChannel(username, message) {
     const packet = JSON.stringify({
         type: 'switchDirectChannel',
         data: username,
+        additionalData: {
+            message,
+        },
     });
 
     chat_conn.connection.send(packet);

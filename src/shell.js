@@ -23,7 +23,7 @@ export async function loadShell() {
 }
 
 async function bootSequence() {
-    await shell.print("BOOTING...", { preDelay: 1500, postDelay: 500 });
+    await shell.print("BOOTING...", { preDelay: 1000, postDelay: 500 });
     await shell.print("\n\n", { printDelay: 0 });
 
     // Load default commands
