@@ -19,7 +19,7 @@ export function loadScript(url, is_module = true) {
         scriptEle.type = is_module ? "module" : "text/javascript";
 
         scriptEle.addEventListener('load', () => { scriptEle.remove(); resolve(); });
-        scriptEle.addEventListener('error', () => { scriptEle.remove(); reject(); });
+        scriptEle.addEventListener('error', () => { scriptEle.remove(); reject(new Error("Failed loading \"" + url + "\"")); });
 
         document.body.appendChild(scriptEle);
     });

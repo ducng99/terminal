@@ -18,10 +18,18 @@ export async function loadShell() {
     window.shell.getCommands = getCommands;
     window.shell.loadScript = loadScript;
 
-    await bootSequence();
-    beginShell();
+    const bootSucceeded = await bootSequence();
+
+    if (bootSucceeded) {
+        beginShell();
+    }
 }
 
+/**
+ * Initiate boot sequence.
+ * 1. Load default commands
+ * @returns {Promise<boolean>} `true` if boot sequence completed successfully, `false` otherwise
+ */
 async function bootSequence() {
     await shell.print("BOOTING...", { preDelay: 1000, postDelay: 500 });
     await shell.print("\n\n", { printDelay: 0 });
@@ -29,11 +37,12 @@ async function bootSequence() {
     // Load default commands
     {
         let defaultCommandsLoaded = false;
-        let defaultCommandsLoadError = false;
+        /** @type {string | null} */
+        let defaultCommandsLoadError = null;
 
         loadDefaultCommands()
-            .catch(() => {
-                defaultCommandsLoadError = true;
+            .catch(error => {
+                defaultCommandsLoadError = error.message;
             })
             .finally(() => {
                 defaultCommandsLoaded = true;
@@ -46,19 +55,29 @@ async function bootSequence() {
         }
 
         if (defaultCommandsLoadError) {
-            await shell.print(" ERROR");
+            await shell.print(" ERROR\n");
+            await shell.print(defaultCommandsLoadError + "\n");
+            return await bootFailed();
         } else {
-            await shell.print(" OK");
+            await shell.print(" OK\n");
         }
     }
 
-    await shell.print("\n\n", { printDelay: 0 });
+    async function bootFailed() {
+        await shell.print("\n", { printDelay: 0 });
+        await shell.print("BOOT FAILED!");
+        return false;
+    }
+
+    await shell.print("\n", { printDelay: 0 });
     await shell.print("BOOT COMPLETED!", { postDelay: 1000 });
     await shell.clear();
 
     await shell.print("Welcome to Old NET.", { postDelay: 500 });
-    await shell.print("\nType 'help' to get started.");
+    await shell.print("\nType 'help' for a list of available commands.");
     await shell.print("\n\n", { printDelay: 0 });
+
+    return true;
 }
 
 async function beginShell() {
