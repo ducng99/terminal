@@ -1,6 +1,8 @@
 import { handleServerMessage } from "./message.js";
 
 const SERVER_HOST = "localhost:8080";
+const AUTH_URL = "http://" + SERVER_HOST + "/login";
+const WS_URL = "ws://" + SERVER_HOST + "/ws";
 
 /** @type {WebSocket} */
 export let connection = null;
@@ -17,7 +19,7 @@ export function setAllowPrintServerMessages(value) {
  * @returns {Promise<{username: string, token: string}>} Updated username and token if successful. New username if provided username was anonymous.
  */
 export async function login(username) {
-    const response = await fetch("http://" + SERVER_HOST + "/login?" + new URLSearchParams({
+    const response = await fetch(AUTH_URL + "?" + new URLSearchParams({
         username
     }));
 
@@ -39,7 +41,7 @@ export async function login(username) {
 export function connect(token) {
     return new Promise((resolve, reject) => {
         if (connection === null) {
-            let _conn = new WebSocket("ws://" + SERVER_HOST + "/ws?" + new URLSearchParams({
+            let _conn = new WebSocket(WS_URL + "?" + new URLSearchParams({
                 token
             }));
 

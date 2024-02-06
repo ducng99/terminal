@@ -1,4 +1,5 @@
 import { CODE_ERROR, CODE_EXIT, CODE_SUCCESS } from './constants.js';
+import * as chat_conn from './connection.js';
 
 /**
  * Handles command
