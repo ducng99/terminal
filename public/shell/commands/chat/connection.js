@@ -1,8 +1,8 @@
 import { handleServerMessage } from "./message.js";
 
-const SERVER_HOST = "localhost:8080";
-const AUTH_URL = "http://" + SERVER_HOST + "/login";
-const WS_URL = "ws://" + SERVER_HOST + "/ws";
+const SERVER_HOST = "ws-chat-server.tomng.dev";
+const AUTH_URL = "https://" + SERVER_HOST + "/login";
+const WS_URL = "wss://" + SERVER_HOST + "/ws";
 
 /** @type {WebSocket} */
 export let connection = null;

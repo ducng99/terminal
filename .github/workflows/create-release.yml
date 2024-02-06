@@ -1,0 +1,40 @@
+name: Create a Release
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    tags:
+      - "v*"
+
+# Sets permissions of the GITHUB_TOKEN to allow creating a release
+permissions:
+  contents: write
+
+jobs:
+  generate-changelog:
+    name: Generate changelog
+    runs-on: ubuntu-22.04
+    outputs:
+      release_body: ${{ steps.git-cliff.outputs.content }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v2
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: -vv -l -s all
+        env:
+          OUTPUT: CHANGES.md
+
+  create-release:
+    runs-on: ubuntu-22.04
+    needs: generate-changelog
+    steps:
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: "${{ needs.generate-changelog.outputs.release_body }}"
