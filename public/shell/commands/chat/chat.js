@@ -47,7 +47,7 @@ Type '/exit' to exit this program.
         try {
             user_message_input = await shell.prompt(`\n${name}> `, { removeAfter: true });
 
-            const handleResult = handleInput(user_message_input);
+            const handleResult = await handleInput(user_message_input);
 
             switch (handleResult.code) {
                 case CODE_EXIT:

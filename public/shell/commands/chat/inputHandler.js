@@ -11,9 +11,9 @@ import { handleCommand } from "./commands.js";
 /**
  * Handles user input.
  * @param {string} input 
- * @returns {InputHandlerResult}
+ * @returns {Promise<InputHandlerResult>}
  */
-export function handleInput(input) {
+export async function handleInput(input) {
     input = input.trim();
     const firstChar = input.charAt(0);
 
@@ -22,7 +22,7 @@ export function handleInput(input) {
             {
                 const command = input.substring(1).split(' ')[0];
                 const params = input.substring(1 + command.length + 1);
-                return handleCommand(command, params);
+                return await handleCommand(command, params);
             }
         case '@':
             {
